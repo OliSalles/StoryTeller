@@ -1,6 +1,13 @@
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { 
+  InsertUser, users,
+  llmConfigs, InsertLlmConfig,
+  jiraConfigs, InsertJiraConfig,
+  features, InsertFeature,
+  userStories, InsertUserStory,
+  acceptanceCriteria, InsertAcceptanceCriterion
+} from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -89,4 +96,117 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// LLM Config queries
+export async function getLlmConfigByUserId(userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(llmConfigs).where(eq(llmConfigs.userId, userId)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function upsertLlmConfig(config: InsertLlmConfig) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const existing = await getLlmConfigByUserId(config.userId);
+  
+  if (existing) {
+    await db.update(llmConfigs)
+      .set({ ...config, updatedAt: new Date() })
+      .where(eq(llmConfigs.userId, config.userId));
+    return getLlmConfigByUserId(config.userId);
+  } else {
+    await db.insert(llmConfigs).values(config);
+    return getLlmConfigByUserId(config.userId);
+  }
+}
+
+// Jira Config queries
+export async function getJiraConfigByUserId(userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(jiraConfigs).where(eq(jiraConfigs.userId, userId)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function upsertJiraConfig(config: InsertJiraConfig) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const existing = await getJiraConfigByUserId(config.userId);
+  
+  if (existing) {
+    await db.update(jiraConfigs)
+      .set({ ...config, updatedAt: new Date() })
+      .where(eq(jiraConfigs.userId, config.userId));
+    return getJiraConfigByUserId(config.userId);
+  } else {
+    await db.insert(jiraConfigs).values(config);
+    return getJiraConfigByUserId(config.userId);
+  }
+}
+
+// Feature queries
+export async function createFeature(feature: InsertFeature) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.insert(features).values(feature);
+  const result = await db.select().from(features).where(eq(features.userId, feature.userId)).orderBy(desc(features.id)).limit(1);
+  return result[0]?.id ?? 0;
+}
+
+export async function getFeaturesByUserId(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(features).where(eq(features.userId, userId)).orderBy(desc(features.createdAt));
+}
+
+export async function getFeatureById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(features).where(eq(features.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function updateFeature(id: number, data: Partial<InsertFeature>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(features).set({ ...data, updatedAt: new Date() }).where(eq(features.id, id));
+  return getFeatureById(id);
+}
+
+// User Story queries
+export async function createUserStory(story: InsertUserStory) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.insert(userStories).values(story);
+  const result = await db.select().from(userStories).where(eq(userStories.featureId, story.featureId)).orderBy(desc(userStories.id)).limit(1);
+  return result[0]?.id ?? 0;
+}
+
+export async function getUserStoriesByFeatureId(featureId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(userStories).where(eq(userStories.featureId, featureId)).orderBy(userStories.orderIndex);
+}
+
+export async function updateUserStory(id: number, data: Partial<InsertUserStory>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(userStories).set({ ...data, updatedAt: new Date() }).where(eq(userStories.id, id));
+}
+
+// Acceptance Criteria queries
+export async function createAcceptanceCriterion(criterion: InsertAcceptanceCriterion) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.insert(acceptanceCriteria).values(criterion);
+  const result = await db.select().from(acceptanceCriteria).where(eq(acceptanceCriteria.userStoryId, criterion.userStoryId)).orderBy(desc(acceptanceCriteria.id)).limit(1);
+  return result[0]?.id ?? 0;
+}
+
+export async function getAcceptanceCriteriaByStoryId(userStoryId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(acceptanceCriteria).where(eq(acceptanceCriteria.userStoryId, userStoryId)).orderBy(acceptanceCriteria.orderIndex);
+}

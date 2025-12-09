@@ -25,4 +25,88 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-// TODO: Add your tables here
+/**
+ * LLM configuration table - stores user's LLM settings
+ */
+export const llmConfigs = mysqlTable("llm_configs", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("user_id").notNull(),
+  provider: varchar("provider", { length: 64 }).notNull().default("openai"),
+  model: varchar("model", { length: 128 }).notNull().default("gpt-4"),
+  apiKey: text("api_key"),
+  temperature: varchar("temperature", { length: 10 }).default("0.7"),
+  maxTokens: int("max_tokens").default(2000),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+
+export type LlmConfig = typeof llmConfigs.$inferSelect;
+export type InsertLlmConfig = typeof llmConfigs.$inferInsert;
+
+/**
+ * Jira configuration table - stores user's Jira integration settings
+ */
+export const jiraConfigs = mysqlTable("jira_configs", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("user_id").notNull(),
+  jiraUrl: varchar("jira_url", { length: 512 }).notNull(),
+  email: varchar("email", { length: 320 }).notNull(),
+  apiToken: text("api_token").notNull(),
+  defaultProject: varchar("default_project", { length: 128 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+
+export type JiraConfig = typeof jiraConfigs.$inferSelect;
+export type InsertJiraConfig = typeof jiraConfigs.$inferInsert;
+
+/**
+ * Features table - stores generated features
+ */
+export const features = mysqlTable("features", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("user_id").notNull(),
+  title: varchar("title", { length: 512 }).notNull(),
+  description: text("description").notNull(),
+  originalPrompt: text("original_prompt").notNull(),
+  status: mysqlEnum("status", ["draft", "exported", "archived"]).default("draft").notNull(),
+  jiraIssueKey: varchar("jira_issue_key", { length: 64 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Feature = typeof features.$inferSelect;
+export type InsertFeature = typeof features.$inferInsert;
+
+/**
+ * User stories table - stores user stories for features
+ */
+export const userStories = mysqlTable("user_stories", {
+  id: int("id").autoincrement().primaryKey(),
+  featureId: int("feature_id").notNull(),
+  title: varchar("title", { length: 512 }).notNull(),
+  description: text("description").notNull(),
+  priority: mysqlEnum("priority", ["low", "medium", "high", "critical"]).default("medium").notNull(),
+  storyPoints: int("story_points"),
+  jiraIssueKey: varchar("jira_issue_key", { length: 64 }),
+  orderIndex: int("order_index").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+
+export type UserStory = typeof userStories.$inferSelect;
+export type InsertUserStory = typeof userStories.$inferInsert;
+
+/**
+ * Acceptance criteria table - stores acceptance criteria for user stories
+ */
+export const acceptanceCriteria = mysqlTable("acceptance_criteria", {
+  id: int("id").autoincrement().primaryKey(),
+  userStoryId: int("user_story_id").notNull(),
+  criterion: text("criterion").notNull(),
+  orderIndex: int("order_index").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type AcceptanceCriterion = typeof acceptanceCriteria.$inferSelect;
+export type InsertAcceptanceCriterion = typeof acceptanceCriteria.$inferInsert;

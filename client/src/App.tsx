@@ -1,34 +1,69 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import DashboardLayout from "@/components/DashboardLayout";
 import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
+import LLMConfig from "./pages/LLMConfig";
+import JiraConfig from "./pages/JiraConfig";
+import GenerateFeature from "./pages/GenerateFeature";
+import FeatureDetail from "./pages/FeatureDetail";
+import History from "./pages/History";
 
 function Router() {
-  // make sure to consider if you need authentication for certain routes
   return (
     <Switch>
       <Route path={"/"} component={Home} />
+      
+      <Route path={"/dashboard"}>
+        <DashboardLayout>
+          <GenerateFeature />
+        </DashboardLayout>
+      </Route>
+
+      <Route path={"/generate"}>
+        <DashboardLayout>
+          <GenerateFeature />
+        </DashboardLayout>
+      </Route>
+
+      <Route path={"/history"}>
+        <DashboardLayout>
+          <History />
+        </DashboardLayout>
+      </Route>
+
+      <Route path={"/features/:id"}>
+        <DashboardLayout>
+          <FeatureDetail />
+        </DashboardLayout>
+      </Route>
+
+      <Route path={"/config/llm"}>
+        <DashboardLayout>
+          <LLMConfig />
+        </DashboardLayout>
+      </Route>
+
+      <Route path={"/config/jira"}>
+        <DashboardLayout>
+          <JiraConfig />
+        </DashboardLayout>
+      </Route>
+
       <Route path={"/404"} component={NotFound} />
-      {/* Final fallback route */}
       <Route component={NotFound} />
     </Switch>
   );
 }
 
-// NOTE: About Theme
-// - First choose a default theme according to your design style (dark or light bg), than change color palette in index.css
-//   to keep consistent foreground/background color across components
-// - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
-
 function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider
-        defaultTheme="light"
-        // switchable
+        defaultTheme="dark"
       >
         <TooltipProvider>
           <Toaster />
