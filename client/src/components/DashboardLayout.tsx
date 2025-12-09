@@ -32,6 +32,7 @@ const menuItems = [
   { icon: History, label: "Histórico", path: "/history" },
   { icon: Settings, label: "Config. LLM", path: "/config/llm" },
   { icon: LayoutDashboard, label: "Config. Jira", path: "/config/jira" },
+  { icon: LayoutDashboard, label: "Config. Azure DevOps", path: "/config/azure-devops" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";

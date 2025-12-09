@@ -3,7 +3,14 @@ import { Badge } from "@/components/ui/badge";
 import { GlassCard } from "@/components/GlassCard";
 import { trpc } from "@/lib/trpc";
 import { useRoute, useLocation } from "wouter";
-import { Loader2, ArrowLeft, Upload, CheckCircle2, AlertCircle, Globe } from "lucide-react";
+import { Loader2, ArrowLeft, Upload, CheckCircle2, AlertCircle, Globe, ChevronDown } from "lucide-react";
+import { useState } from "react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 
 const priorityColors = {
@@ -19,17 +26,32 @@ export default function FeatureDetail() {
   const featureId = params?.id ? parseInt(params.id) : 0;
 
   const { data, isLoading } = trpc.features.getById.useQuery({ id: featureId });
-  const exportMutation = trpc.features.exportToJira.useMutation();
+  const exportJiraMutation = trpc.features.exportToJira.useMutation();
+  const exportAzureMutation = trpc.azureDevOps.exportFeature.useMutation();
   const utils = trpc.useUtils();
 
-  const handleExport = async () => {
+  const [showExportMenu, setShowExportMenu] = useState(false);
+
+  const handleExportJira = async () => {
     try {
-      const result = await exportMutation.mutateAsync({ featureId });
-      toast.success(`Feature exportada com sucesso! Epic: ${result.epicKey}`);
+      const result = await exportJiraMutation.mutateAsync({ featureId });
+      toast.success(`Feature exportada para Jira! Epic: ${result.epicKey}`);
       utils.features.getById.invalidate({ id: featureId });
       utils.features.list.invalidate();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Erro ao exportar para Jira";
+      toast.error(message);
+    }
+  };
+
+  const handleExportAzure = async () => {
+    try {
+      const result = await exportAzureMutation.mutateAsync({ featureId });
+      toast.success(`Feature exportada para Azure DevOps! Epic ID: ${result.epicId}`);
+      utils.features.getById.invalidate({ id: featureId });
+      utils.features.list.invalidate();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erro ao exportar para Azure DevOps";
       toast.error(message);
     }
   };
@@ -69,30 +91,42 @@ export default function FeatureDetail() {
         </Button>
 
         {feature.status === "draft" && (
-          <Button
-            onClick={handleExport}
-            disabled={exportMutation.isPending}
-            className="gap-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
-          >
-            {exportMutation.isPending ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Exportando...
-              </>
-            ) : (
-              <>
-                <Upload className="w-4 h-4" />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                disabled={exportJiraMutation.isPending || exportAzureMutation.isPending}
+                className="gap-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
+              >
+                {exportJiraMutation.isPending || exportAzureMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Exportando...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4" />
+                    Exportar
+                    <ChevronDown className="w-4 h-4" />
+                  </>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-background/95 backdrop-blur-sm border-white/10">
+              <DropdownMenuItem onClick={handleExportJira} className="cursor-pointer">
                 Exportar para Jira
-              </>
-            )}
-          </Button>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportAzure} className="cursor-pointer">
+                Exportar para Azure DevOps
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
 
-        {feature.status === "exported" && feature.jiraIssueKey && (
+        {feature.status === "exported" && (feature.jiraIssueKey || feature.azureDevOpsWorkItemId) && (
           <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-500/20 border border-green-500/30">
             <CheckCircle2 className="w-4 h-4 text-green-400" />
             <span className="text-sm font-medium text-green-300">
-              Exportado: {feature.jiraIssueKey}
+              {feature.jiraIssueKey ? `Jira: ${feature.jiraIssueKey}` : `Azure DevOps: ${feature.azureDevOpsWorkItemId}`}
             </span>
           </div>
         )}

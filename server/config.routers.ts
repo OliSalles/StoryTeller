@@ -6,6 +6,31 @@ import * as db from "./db";
  * Configuration routers for LLM and Jira settings
  */
 export const configRouter = router({
+  azureDevOps: router({
+    get: protectedProcedure.query(async ({ ctx }) => {
+      return await db.getAzureDevOpsConfigByUserId(ctx.user.id);
+    }),
+    save: protectedProcedure
+      .input(
+        z.object({
+          organization: z.string().min(1),
+          project: z.string().min(1),
+          pat: z.string().min(1),
+          defaultArea: z.string().optional(),
+          defaultIteration: z.string().optional(),
+          defaultState: z.string().optional(),
+          defaultBoard: z.string().optional(),
+          defaultColumn: z.string().optional(),
+          defaultSwimlane: z.string().optional(),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        return await db.upsertAzureDevOpsConfig({
+          userId: ctx.user.id,
+          ...input,
+        });
+      }),
+  }),
   llm: router({
     get: protectedProcedure.query(async ({ ctx }) => {
       return db.getLlmConfigByUserId(ctx.user.id);

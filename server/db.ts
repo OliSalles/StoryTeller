@@ -1,12 +1,20 @@
-import { desc, eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { 
-  InsertUser, users,
-  llmConfigs, InsertLlmConfig,
-  jiraConfigs, InsertJiraConfig,
-  features, InsertFeature,
-  userStories, InsertUserStory,
-  acceptanceCriteria, InsertAcceptanceCriterion
+import {
+  InsertUser,
+  users,
+  llmConfigs,
+  InsertLlmConfig,
+  jiraConfigs,
+  InsertJiraConfig,
+  azureDevOpsConfigs,
+  InsertAzureDevOpsConfig,
+  features,
+  InsertFeature,
+  userStories,
+  InsertUserStory,
+  acceptanceCriteria,
+  InsertAcceptanceCriterion,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -209,4 +217,40 @@ export async function getAcceptanceCriteriaByStoryId(userStoryId: number) {
   const db = await getDb();
   if (!db) return [];
   return db.select().from(acceptanceCriteria).where(eq(acceptanceCriteria.userStoryId, userStoryId)).orderBy(acceptanceCriteria.orderIndex);
+}
+
+// Azure DevOps configuration functions
+export async function getAzureDevOpsConfigByUserId(userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(azureDevOpsConfigs).where(eq(azureDevOpsConfigs.userId, userId)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function upsertAzureDevOpsConfig(config: InsertAzureDevOpsConfig) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const existing = await getAzureDevOpsConfigByUserId(config.userId);
+  
+  if (existing) {
+    await db.update(azureDevOpsConfigs)
+      .set({
+        organization: config.organization,
+        project: config.project,
+        pat: config.pat,
+        defaultArea: config.defaultArea,
+        defaultIteration: config.defaultIteration,
+        defaultState: config.defaultState,
+        defaultBoard: config.defaultBoard,
+        defaultColumn: config.defaultColumn,
+        defaultSwimlane: config.defaultSwimlane,
+        updatedAt: new Date(),
+      })
+      .where(eq(azureDevOpsConfigs.userId, config.userId));
+    return await getAzureDevOpsConfigByUserId(config.userId);
+  } else {
+    await db.insert(azureDevOpsConfigs).values(config);
+    return await getAzureDevOpsConfigByUserId(config.userId);
+  }
 }

@@ -61,6 +61,28 @@ export type JiraConfig = typeof jiraConfigs.$inferSelect;
 export type InsertJiraConfig = typeof jiraConfigs.$inferInsert;
 
 /**
+ * Azure DevOps configuration table - stores user's Azure DevOps integration settings
+ */
+export const azureDevOpsConfigs = mysqlTable("azure_devops_configs", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("user_id").notNull(),
+  organization: varchar("organization", { length: 256 }).notNull(),
+  project: varchar("project", { length: 256 }).notNull(),
+  pat: text("pat").notNull(),
+  defaultArea: varchar("default_area", { length: 256 }),
+  defaultIteration: varchar("default_iteration", { length: 256 }),
+  defaultState: varchar("default_state", { length: 128 }),
+  defaultBoard: varchar("default_board", { length: 256 }),
+  defaultColumn: varchar("default_column", { length: 128 }),
+  defaultSwimlane: varchar("default_swimlane", { length: 128 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+
+export type AzureDevOpsConfig = typeof azureDevOpsConfigs.$inferSelect;
+export type InsertAzureDevOpsConfig = typeof azureDevOpsConfigs.$inferInsert;
+
+/**
  * Features table - stores generated features
  */
 export const features = mysqlTable("features", {
@@ -71,7 +93,9 @@ export const features = mysqlTable("features", {
   originalPrompt: text("original_prompt").notNull(),
   language: mysqlEnum("language", ["pt", "en"]).default("pt").notNull(),
   status: mysqlEnum("status", ["draft", "exported", "archived"]).default("draft").notNull(),
+  exportTarget: mysqlEnum("export_target", ["jira", "azure_devops"]),
   jiraIssueKey: varchar("jira_issue_key", { length: 64 }),
+  azureDevOpsWorkItemId: int("azure_devops_work_item_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
 });
@@ -90,6 +114,7 @@ export const userStories = mysqlTable("user_stories", {
   priority: mysqlEnum("priority", ["low", "medium", "high", "critical"]).default("medium").notNull(),
   storyPoints: int("story_points"),
   jiraIssueKey: varchar("jira_issue_key", { length: 64 }),
+  azureDevOpsWorkItemId: int("azure_devops_work_item_id"),
   orderIndex: int("order_index").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),

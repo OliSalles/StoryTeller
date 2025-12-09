@@ -8,6 +8,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 import LLMConfig from "./pages/LLMConfig";
 import JiraConfig from "./pages/JiraConfig";
+import AzureDevOpsConfig from "./pages/AzureDevOpsConfig";
 import GenerateFeature from "./pages/GenerateFeature";
 import FeatureDetail from "./pages/FeatureDetail";
 import History from "./pages/History";
@@ -50,6 +51,12 @@ function Router() {
       <Route path={"/config/jira"}>
         <DashboardLayout>
           <JiraConfig />
+        </DashboardLayout>
+      </Route>
+
+      <Route path={"/config/azure-devops"}>
+        <DashboardLayout>
+          <AzureDevOpsConfig />
         </DashboardLayout>
       </Route>
 

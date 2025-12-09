@@ -39,3 +39,11 @@
 - [x] Ajustar visualização para mostrar features com histórias agrupadas logo abaixo
 - [x] Adicionar seleção de idioma (inglês/português) na geração de features
 - [x] Atualizar prompt da IA para gerar conteúdo no idioma selecionado
+
+## Integração Azure DevOps
+- [x] Criar tabela de configuração do Azure DevOps no banco de dados
+- [x] Adicionar campos específicos do Azure DevOps (state, area, iteration, board, column, swimlane)
+- [x] Implementar router de configuração do Azure DevOps
+- [x] Criar página de configuração do Azure DevOps
+- [x] Implementar exportação de features para Azure DevOps
+- [x] Adicionar seleção entre Jira e Azure DevOps na interface
