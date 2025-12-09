@@ -69,6 +69,7 @@ export const features = mysqlTable("features", {
   title: varchar("title", { length: 512 }).notNull(),
   description: text("description").notNull(),
   originalPrompt: text("original_prompt").notNull(),
+  language: mysqlEnum("language", ["pt", "en"]).default("pt").notNull(),
   status: mysqlEnum("status", ["draft", "exported", "archived"]).default("draft").notNull(),
   jiraIssueKey: varchar("jira_issue_key", { length: 64 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),

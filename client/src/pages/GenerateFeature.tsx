@@ -1,6 +1,14 @@
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { GlassCard } from "@/components/GlassCard";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -10,6 +18,7 @@ import { useLocation } from "wouter";
 export default function GenerateFeature() {
   const [, setLocation] = useLocation();
   const [prompt, setPrompt] = useState("");
+  const [language, setLanguage] = useState<"pt" | "en">("pt");
   const generateMutation = trpc.features.generate.useMutation();
 
   const handleGenerate = async () => {
@@ -19,7 +28,7 @@ export default function GenerateFeature() {
     }
 
     try {
-      const result = await generateMutation.mutateAsync({ prompt });
+      const result = await generateMutation.mutateAsync({ prompt, language });
       toast.success("Feature gerada com sucesso!");
       setLocation(`/features/${result.featureId}`);
     } catch (error) {
@@ -44,9 +53,27 @@ export default function GenerateFeature() {
       <GlassCard className="p-8">
         <div className="space-y-6">
           <div className="space-y-3">
-            <label className="text-base font-semibold block">
+            <Label htmlFor="language" className="text-base font-semibold">
+              Idioma da Geração
+            </Label>
+            <Select value={language} onValueChange={(value) => setLanguage(value as "pt" | "en")}>
+              <SelectTrigger className="bg-white/5 border-white/10 focus:border-primary/50">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pt">Português</SelectItem>
+                <SelectItem value="en">English</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-sm text-muted-foreground">
+              Escolha o idioma para gerar a feature, histórias de usuário e critérios de aceite
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <Label htmlFor="prompt" className="text-base font-semibold">
               Descreva sua Feature
-            </label>
+            </Label>
             <Textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}

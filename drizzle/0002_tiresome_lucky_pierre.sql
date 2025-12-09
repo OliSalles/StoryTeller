@@ -1,0 +1,1 @@
+ALTER TABLE `features` ADD `language` enum('pt','en') DEFAULT 'pt' NOT NULL;

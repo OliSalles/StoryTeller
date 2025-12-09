@@ -34,3 +34,8 @@
 - [x] Testes unitários para routers tRPC
 - [x] Validação de integração com Jira
 - [ ] Testes de geração de features com IA
+
+## Melhorias Solicitadas
+- [x] Ajustar visualização para mostrar features com histórias agrupadas logo abaixo
+- [x] Adicionar seleção de idioma (inglês/português) na geração de features
+- [x] Atualizar prompt da IA para gerar conteúdo no idioma selecionado

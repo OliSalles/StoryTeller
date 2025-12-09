@@ -15,6 +15,13 @@
       "when": 1765298925962,
       "tag": "0001_regular_albert_cleary",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1765300887497,
+      "tag": "0002_tiresome_lucky_pierre",
+      "breakpoints": true
     }
   ]
 }

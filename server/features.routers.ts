@@ -11,6 +11,7 @@ export const featuresRouter = router({
     .input(
       z.object({
         prompt: z.string().min(10),
+        language: z.enum(["pt", "en"]).default("pt"),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -18,7 +19,13 @@ export const featuresRouter = router({
       const llmConfig = await db.getLlmConfigByUserId(ctx.user.id);
       
       // System prompt for feature generation
+      const languageInstructions = input.language === "pt" 
+        ? "Responda em português brasileiro. Use linguagem clara e profissional."
+        : "Respond in English. Use clear and professional language.";
+
       const systemPrompt = `You are an expert product manager and technical architect. Your task is to analyze user requirements and generate a comprehensive feature specification.
+
+${languageInstructions}
 
 For the given requirement, you must:
 1. Create a clear feature title and description
@@ -115,6 +122,7 @@ Return your response in the following JSON format:
         title: generated.feature.title,
         description: generated.feature.description,
         originalPrompt: input.prompt,
+        language: input.language,
         status: "draft",
       });
 
