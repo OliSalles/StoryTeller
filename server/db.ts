@@ -204,6 +204,12 @@ export async function updateUserStory(id: number, data: Partial<InsertUserStory>
   await db.update(userStories).set({ ...data, updatedAt: new Date() }).where(eq(userStories.id, id));
 }
 
+export async function updateAcceptanceCriterion(id: number, criterion: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(acceptanceCriteria).set({ criterion }).where(eq(acceptanceCriteria.id, id));
+}
+
 // Acceptance Criteria queries
 export async function createAcceptanceCriterion(criterion: InsertAcceptanceCriterion) {
   const db = await getDb();
@@ -253,4 +259,25 @@ export async function upsertAzureDevOpsConfig(config: InsertAzureDevOpsConfig) {
     await db.insert(azureDevOpsConfigs).values(config);
     return await getAzureDevOpsConfigByUserId(config.userId);
   }
+}
+
+// Delete functions for refinement
+export async function deleteUserStoriesByFeatureId(featureId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  // First get all stories to delete their criteria
+  const stories = await getUserStoriesByFeatureId(featureId);
+  for (const story of stories) {
+    await db.delete(acceptanceCriteria).where(eq(acceptanceCriteria.userStoryId, story.id));
+  }
+  
+  // Then delete the stories
+  await db.delete(userStories).where(eq(userStories.featureId, featureId));
+}
+
+export async function deleteAcceptanceCriteriaByStoryId(userStoryId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(acceptanceCriteria).where(eq(acceptanceCriteria.userStoryId, userStoryId));
 }

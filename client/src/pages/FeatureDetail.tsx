@@ -3,8 +3,11 @@ import { Badge } from "@/components/ui/badge";
 import { GlassCard } from "@/components/GlassCard";
 import { trpc } from "@/lib/trpc";
 import { useRoute, useLocation } from "wouter";
-import { Loader2, ArrowLeft, Upload, CheckCircle2, AlertCircle, Globe, ChevronDown } from "lucide-react";
+import { Loader2, ArrowLeft, Upload, CheckCircle2, AlertCircle, Globe, ChevronDown, Edit, Sparkles } from "lucide-react";
 import { useState } from "react";
+import { EditStoryDialog } from "@/components/EditStoryDialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,6 +34,12 @@ export default function FeatureDetail() {
   const utils = trpc.useUtils();
 
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [editingStory, setEditingStory] = useState<any>(null);
+  const [showRefineDialog, setShowRefineDialog] = useState(false);
+  const [refinementPrompt, setRefinementPrompt] = useState("");
+  
+  const updateStoryMutation = trpc.features.updateStory.useMutation();
+  const refineMutation = trpc.features.refine.useMutation();
 
   const handleExportJira = async () => {
     try {
@@ -52,6 +61,39 @@ export default function FeatureDetail() {
       utils.features.list.invalidate();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Erro ao exportar para Azure DevOps";
+      toast.error(message);
+    }
+  };
+
+  const handleSaveStory = async (storyId: number, data: any) => {
+    try {
+      await updateStoryMutation.mutateAsync({ storyId, ...data });
+      toast.success("História atualizada com sucesso!");
+      utils.features.getById.invalidate({ id: featureId });
+    } catch (error) {
+      toast.error("Erro ao atualizar história");
+    }
+  };
+
+  const handleRefine = async () => {
+    if (!refinementPrompt.trim()) {
+      toast.error("Digite um prompt de refinamento");
+      return;
+    }
+
+    try {
+      await refineMutation.mutateAsync({
+        featureId,
+        refinementPrompt,
+        language: feature?.language || "pt",
+      });
+      toast.success("Feature refinada com sucesso!");
+      setShowRefineDialog(false);
+      setRefinementPrompt("");
+      utils.features.getById.invalidate({ id: featureId });
+      utils.features.list.invalidate();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erro ao refinar feature";
       toast.error(message);
     }
   };
@@ -88,6 +130,15 @@ export default function FeatureDetail() {
         >
           <ArrowLeft className="w-4 h-4" />
           Voltar
+        </Button>
+
+        <Button
+          variant="outline"
+          onClick={() => setShowRefineDialog(true)}
+          className="gap-2 bg-white/5 border-white/10 hover:bg-white/10"
+        >
+          <Sparkles className="w-4 h-4" />
+          Refinar com IA
         </Button>
 
         {feature.status === "draft" && (
@@ -196,11 +247,21 @@ export default function FeatureDetail() {
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 justify-between">
                         <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/20 text-primary font-bold text-sm flex-shrink-0">
                           {index + 1}
                         </span>
-                        <h3 className="text-xl font-semibold">{story.title}</h3>
+                        <h3 className="text-xl font-semibold flex-1">{story.title}</h3>
+                        {feature.status === "draft" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setEditingStory(story)}
+                            className="h-8 w-8 p-0 hover:bg-white/10"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                        )}
                       </div>
                       <p className="text-foreground/80 leading-relaxed pl-11">
                         {story.description}

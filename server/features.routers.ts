@@ -7,6 +7,138 @@ import * as db from "./db";
  * Features router for AI generation and Jira integration
  */
 export const featuresRouter = router({
+  updateStory: protectedProcedure
+    .input(
+      z.object({
+        storyId: z.number(),
+        title: z.string().optional(),
+        description: z.string().optional(),
+        priority: z.enum(["low", "medium", "high", "critical"]).optional(),
+        storyPoints: z.number().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { storyId, ...data } = input;
+      await db.updateUserStory(storyId, data);
+      return { success: true };
+    }),
+
+  refine: protectedProcedure
+    .input(
+      z.object({
+        featureId: z.number(),
+        refinementPrompt: z.string().min(10),
+        language: z.enum(["pt", "en"]).default("pt"),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Get existing feature and stories
+      const feature = await db.getFeatureById(input.featureId);
+      if (!feature) {
+        throw new Error("Feature not found");
+      }
+
+      const existingStories = await db.getUserStoriesByFeatureId(input.featureId);
+
+      // Get user's LLM config
+      const llmConfig = await db.getLlmConfigByUserId(ctx.user.id);
+      
+      const languageInstructions = input.language === "pt" 
+        ? "Responda em português brasileiro. Use linguagem clara e profissional."
+        : "Respond in English. Use clear and professional language.";
+
+      const systemPrompt = `You are an expert product manager refining an existing feature specification.
+
+${languageInstructions}
+
+Current Feature:
+Title: ${feature.title}
+Description: ${feature.description}
+
+Existing User Stories:
+${existingStories.map((s, i) => `${i + 1}. ${s.title}\n   ${s.description}`).join("\n\n")}
+
+User refinement request: ${input.refinementPrompt}
+
+Your task is to refine and improve the feature based on the user's request. You can:
+- Update the feature title and description
+- Modify existing user stories
+- Add new user stories
+- Remove unnecessary stories
+- Adjust priorities and story points
+
+Return your response in the following JSON format:
+{
+  "feature": {
+    "title": "Updated feature title",
+    "description": "Updated detailed feature description"
+  },
+  "userStories": [
+    {
+      "title": "Story title",
+      "description": "Story description",
+      "priority": "low" | "medium" | "high" | "critical",
+      "storyPoints": 1 | 2 | 3 | 5 | 8 | 13 | 21,
+      "acceptanceCriteria": [
+        "Criterion 1",
+        "Criterion 2"
+      ]
+    }
+  ]
+}`;
+
+      const response = await invokeLLM({
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: input.refinementPrompt },
+        ],
+        ...(llmConfig?.temperature && { temperature: parseFloat(llmConfig.temperature) }),
+        ...(llmConfig?.maxTokens && { max_tokens: llmConfig.maxTokens }),
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error("No response from LLM");
+      }
+
+      const contentStr = typeof content === 'string' ? content : JSON.stringify(content);
+      const generated = JSON.parse(contentStr);
+
+      // Update feature
+      await db.updateFeature(input.featureId, {
+        title: generated.feature.title,
+        description: generated.feature.description,
+      });
+
+      // Delete old stories and criteria
+      await db.deleteUserStoriesByFeatureId(input.featureId);
+
+      // Create new user stories and acceptance criteria
+      for (let i = 0; i < generated.userStories.length; i++) {
+        const story = generated.userStories[i];
+        const storyId = await db.createUserStory({
+          featureId: input.featureId,
+          title: story.title,
+          description: story.description,
+          priority: story.priority,
+          storyPoints: story.storyPoints,
+          orderIndex: i,
+        });
+
+        if (story.acceptanceCriteria && Array.isArray(story.acceptanceCriteria)) {
+          for (let j = 0; j < story.acceptanceCriteria.length; j++) {
+            await db.createAcceptanceCriterion({
+              userStoryId: storyId,
+              criterion: story.acceptanceCriteria[j],
+              orderIndex: j,
+            });
+          }
+        }
+      }
+
+      return { featureId: input.featureId, success: true };
+    }),
+
   generate: protectedProcedure
     .input(
       z.object({
@@ -17,6 +149,136 @@ export const featuresRouter = router({
     .mutation(async ({ ctx, input }) => {
       // Get user's LLM config
       const llmConfig = await db.getLlmConfigByUserId(ctx.user.id);
+
+      // Check if prompt is large (> 2000 characters) and needs to be split
+      const CHUNK_SIZE = 2000;
+      const isLargePrompt = input.prompt.length > CHUNK_SIZE;
+
+      if (isLargePrompt) {
+        // Split into chunks
+        const chunks: string[] = [];
+        for (let i = 0; i < input.prompt.length; i += CHUNK_SIZE) {
+          chunks.push(input.prompt.substring(i, i + CHUNK_SIZE));
+        }
+
+        // Process each chunk
+        const partialResults: any[] = [];
+        
+        const languageInstructions = input.language === "pt" 
+          ? "Responda em português brasileiro. Use linguagem clara e profissional."
+          : "Respond in English. Use clear and professional language.";
+
+        for (let i = 0; i < chunks.length; i++) {
+          const chunkPrompt = `You are processing part ${i + 1} of ${chunks.length} of a large feature description.
+
+${languageInstructions}
+
+Part ${i + 1} content:
+${chunks[i]}
+
+Generate user stories for this part only. Return JSON format:
+{
+  "userStories": [
+    {
+      "title": "Story title",
+      "description": "Story description",
+      "priority": "low" | "medium" | "high" | "critical",
+      "storyPoints": 1 | 2 | 3 | 5 | 8 | 13 | 21,
+      "acceptanceCriteria": ["Criterion 1", "Criterion 2"]
+    }
+  ]
+}`;
+
+          const response = await invokeLLM({
+            messages: [
+              { role: "system", content: chunkPrompt },
+              { role: "user", content: chunks[i] },
+            ],
+            ...(llmConfig?.temperature && { temperature: parseFloat(llmConfig.temperature) }),
+            ...(llmConfig?.maxTokens && { max_tokens: llmConfig.maxTokens }),
+          });
+
+          const content = response.choices[0]?.message?.content;
+          if (content) {
+            const contentStr = typeof content === 'string' ? content : JSON.stringify(content);
+            const parsed = JSON.parse(contentStr);
+            partialResults.push(parsed);
+          }
+        }
+
+        // Merge results
+        const allStories = partialResults.flatMap(r => r.userStories || []);
+
+        // Generate consolidated feature title and description
+        const consolidationPrompt = `You are consolidating multiple parts of a feature specification.
+
+${languageInstructions}
+
+Original full description:
+${input.prompt}
+
+Generated ${allStories.length} user stories from all parts.
+
+Create a comprehensive feature title and description that encompasses all parts. Return JSON:
+{
+  "feature": {
+    "title": "Feature title",
+    "description": "Comprehensive feature description"
+  }
+}`;
+
+        const consolidationResponse = await invokeLLM({
+          messages: [
+            { role: "system", content: consolidationPrompt },
+            { role: "user", content: input.prompt },
+          ],
+          ...(llmConfig?.temperature && { temperature: parseFloat(llmConfig.temperature) }),
+        });
+
+        const consolidationContent = consolidationResponse.choices[0]?.message?.content;
+        if (!consolidationContent) {
+          throw new Error("Failed to generate consolidated feature");
+        }
+
+        const consolidationStr = typeof consolidationContent === 'string' ? consolidationContent : JSON.stringify(consolidationContent);
+        const consolidation = JSON.parse(consolidationStr);
+
+        // Save consolidated feature
+        const featureId = await db.createFeature({
+          userId: ctx.user.id,
+          title: consolidation.feature.title,
+          description: consolidation.feature.description,
+          originalPrompt: input.prompt,
+          language: input.language,
+        });
+
+        // Save all user stories
+        for (let i = 0; i < allStories.length; i++) {
+          const story = allStories[i];
+          const storyId = await db.createUserStory({
+            featureId,
+            title: story.title,
+            description: story.description,
+            priority: story.priority,
+            storyPoints: story.storyPoints,
+            orderIndex: i,
+          });
+
+          if (story.acceptanceCriteria && Array.isArray(story.acceptanceCriteria)) {
+            for (let j = 0; j < story.acceptanceCriteria.length; j++) {
+              await db.createAcceptanceCriterion({
+                userStoryId: storyId,
+                criterion: story.acceptanceCriteria[j],
+                orderIndex: j,
+              });
+            }
+          }
+        }
+
+        return { featureId, processedInChunks: true, chunksCount: chunks.length };
+      }
+
+      // Original single-pass logic for normal-sized prompts
       
       // System prompt for feature generation
       const languageInstructions = input.language === "pt" 
@@ -114,7 +376,8 @@ Return your response in the following JSON format:
         throw new Error("Failed to generate feature");
       }
 
-      const generated = JSON.parse(content);
+      const contentStr = typeof content === 'string' ? content : JSON.stringify(content);
+      const generated = JSON.parse(contentStr);
 
       // Save to database
       const featureId = await db.createFeature({

@@ -47,3 +47,13 @@
 - [x] Criar página de configuração do Azure DevOps
 - [x] Implementar exportação de features para Azure DevOps
 - [x] Adicionar seleção entre Jira e Azure DevOps na interface
+
+## Processamento Avançado e Edição
+- [x] Implementar detecção de prompts grandes (> 2000 caracteres)
+- [x] Criar lógica de divisão de prompts em etapas menores
+- [x] Implementar processamento sequencial de etapas
+- [x] Criar sistema de reunião e consolidação de resultados parciais
+- [x] Adicionar interface de edição de features (título, descrição)
+- [x] Adicionar interface de edição de histórias de usuário
+- [x] Implementar refinamento com novos prompts de IA sobre feature existente
+- [ ] Adicionar histórico de versões/refinamentos
