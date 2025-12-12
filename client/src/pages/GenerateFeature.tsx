@@ -99,10 +99,20 @@ export default function GenerateFeature() {
               placeholder="Exemplo: Preciso de um sistema de notificações em tempo real onde os usuários possam receber alertas sobre atividades importantes, configurar preferências de notificação e visualizar histórico de notificações..."
               className="min-h-[300px] bg-white/5 border-white/10 focus:border-primary/50 resize-none text-base leading-relaxed"
               disabled={generateMutation.isPending}
+              maxLength={2000}
             />
-            <p className="text-sm text-muted-foreground">
-              Seja específico sobre funcionalidades, usuários e objetivos. Quanto mais detalhes, melhor será o resultado.
-            </p>
+            <div className="flex justify-between items-center">
+              <p className="text-sm text-muted-foreground">
+                Seja específico sobre funcionalidades, usuários e objetivos. Quanto mais detalhes, melhor será o resultado.
+              </p>
+              <p className={`text-sm font-medium ${
+                prompt.length >= 2000 ? 'text-destructive' : 
+                prompt.length >= 1800 ? 'text-yellow-500' : 
+                'text-muted-foreground'
+              }`}>
+                {prompt.length}/2000
+              </p>
+            </div>
           </div>
 
           <div className="flex items-center gap-4 p-4 rounded-lg bg-primary/10 border border-primary/20">

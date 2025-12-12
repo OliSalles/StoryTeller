@@ -120,3 +120,8 @@
 - [x] Adicionar logs detalhados com timestamps em cada etapa do processamento
 - [x] Incluir conteúdo parcial das respostas da IA nos logs
 - [x] Logar erros específicos de parsing JSON
+
+## Limite de Caracteres
+- [x] Adicionar maxLength de 2000 caracteres no textarea
+- [x] Adicionar contador visual de caracteres (ex: "1523/2000")
+- [x] Testar que não é possível digitar mais de 2000 caracteres
