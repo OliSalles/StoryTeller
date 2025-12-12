@@ -110,3 +110,13 @@
 - [x] Adicionar botão "Cancelar" no frontend durante processamento
 - [x] Atualizar status da execução para "error" ao abortar
 - [x] Testar cancelamento com prompt longo
+
+## Bug: Processamento de Chunks
+- [ ] Investigar erro "Failed to generate user stories from chunks"
+- [ ] Verificar se chunks estão sendo processados corretamente em paralelo
+- [ ] Validar se consolidação está recebendo histórias dos chunks
+- [ ] Corrigir lógica de merge de histórias de múltiplos chunks
+- [ ] Testar com prompt longo que estava falhando
+- [x] Adicionar logs detalhados com timestamps em cada etapa do processamento
+- [x] Incluir conteúdo parcial das respostas da IA nos logs
+- [x] Logar erros específicos de parsing JSON

@@ -250,6 +250,7 @@ Return your response in the following JSON format:
         console.log(`[CHUNKS] Starting parallel processing of ${chunks.length} chunks`);
         
         const chunkPromises = chunks.map(async (chunk, i) => {
+          const chunkStartTime = Date.now();
           const chunkPrompt = `You are processing part ${i + 1} of ${chunks.length} of a large feature description.
 
 ${languageInstructions}
@@ -278,7 +279,9 @@ Generate user stories for this part only. Return JSON format:
 }`;
 
           try {
-            console.log(`[Chunk ${i + 1}] Starting processing with 2-minute timeout...`);
+            console.log(`[Chunk ${i + 1}/${chunks.length}] [${new Date().toISOString()}] Starting processing...`);
+            console.log(`[Chunk ${i + 1}] Chunk size: ${chunk.length} characters`);
+            console.log(`[Chunk ${i + 1}] First 100 chars: ${chunk.substring(0, 100)}...`);
             const response = await withTimeout(
               invokeLLM({
               messages: [
@@ -335,41 +338,84 @@ Generate user stories for this part only. Return JSON format:
             `Chunk ${i + 1} processing timeout after 2 minutes`
           );
 
+            const elapsedMs = Date.now() - chunkStartTime;
+            console.log(`[Chunk ${i + 1}] [${new Date().toISOString()}] AI response received after ${elapsedMs}ms`);
+            
             if (!response || !response.choices || response.choices.length === 0) {
-              console.error(`[Chunk ${i + 1}] Resposta da IA vazia ou inv\u00e1lida`);
+              console.error(`[Chunk ${i + 1}] ERROR: Empty or invalid AI response`);
+              console.error(`[Chunk ${i + 1}] Response object:`, JSON.stringify(response).substring(0, 500));
               return null;
             }
             
             const content = response.choices[0]?.message?.content;
             console.log(`[Chunk ${i + 1}] Content received:`, content ? 'YES' : 'NO');
+            
             if (content) {
               const contentStr = typeof content === 'string' ? content : JSON.stringify(content);
-              console.log(`[Chunk ${i + 1}] Content string length:`, contentStr.length);
-              const cleanedStr = cleanJsonResponse(contentStr);
-              console.log(`[Chunk ${i + 1}] Cleaned string length:`, cleanedStr.length);
-              const parsed = JSON.parse(cleanedStr);
-              console.log(`[Chunk ${i + 1}] Parsed stories count:`, parsed.userStories?.length || 0);
-              console.log(`[Chunk ${i + 1}] Parsed object keys:`, Object.keys(parsed));
-              if (parsed.userStories && parsed.userStories.length > 0) {
-                console.log(`[Chunk ${i + 1}] First story title:`, parsed.userStories[0]?.title);
+              console.log(`[Chunk ${i + 1}] Raw content length: ${contentStr.length} chars`);
+              console.log(`[Chunk ${i + 1}] Raw content preview: ${contentStr.substring(0, 200)}...`);
+              
+              try {
+                const cleanedStr = cleanJsonResponse(contentStr);
+                console.log(`[Chunk ${i + 1}] Cleaned content length: ${cleanedStr.length} chars`);
+                console.log(`[Chunk ${i + 1}] Cleaned content preview: ${cleanedStr.substring(0, 200)}...`);
+                
+                const parsed = JSON.parse(cleanedStr);
+                console.log(`[Chunk ${i + 1}] JSON parsed successfully`);
+                console.log(`[Chunk ${i + 1}] Parsed object keys:`, Object.keys(parsed));
+                console.log(`[Chunk ${i + 1}] User stories count:`, parsed.userStories?.length || 0);
+                
+                if (parsed.userStories && parsed.userStories.length > 0) {
+                  console.log(`[Chunk ${i + 1}] First story title:`, parsed.userStories[0]?.title);
+                  console.log(`[Chunk ${i + 1}] First story has ${parsed.userStories[0]?.tasks?.length || 0} tasks`);
+                }
+                
+                const totalElapsedMs = Date.now() - chunkStartTime;
+                console.log(`[Chunk ${i + 1}] ✅ SUCCESS - Total time: ${totalElapsedMs}ms`);
+                return parsed;
+              } catch (parseError) {
+                console.error(`[Chunk ${i + 1}] ❌ JSON PARSE ERROR:`, parseError);
+                console.error(`[Chunk ${i + 1}] Failed to parse content:`, contentStr.substring(0, 500));
+                return null;
               }
-              console.log(`[Chunk ${i + 1}] Processing completed successfully`);
-              return parsed;
             } else {
-              console.error(`[Chunk ${i + 1}] No content in response`);
+              console.error(`[Chunk ${i + 1}] ❌ ERROR: No content in AI response`);
               return null;
             }
           } catch (error) {
-            console.error(`[Chunk ${i + 1}] Error processing:`, error);
+            const totalElapsedMs = Date.now() - chunkStartTime;
+            console.error(`[Chunk ${i + 1}] ❌ EXCEPTION after ${totalElapsedMs}ms:`, error);
+            console.error(`[Chunk ${i + 1}] Error type:`, error instanceof Error ? error.constructor.name : typeof error);
+            console.error(`[Chunk ${i + 1}] Error message:`, error instanceof Error ? error.message : String(error));
+            console.error(`[Chunk ${i + 1}] Error stack:`, error instanceof Error ? error.stack : 'N/A');
             return null;
           }
         });
 
         // Wait for all chunks to complete in parallel
-        const results = await Promise.all(chunkPromises);
+        let results;
+        try {
+          console.log(`[CHUNKS] Awaiting Promise.all for ${chunkPromises.length} promises...`);
+          results = await Promise.all(chunkPromises);
+          console.log(`[CHUNKS] Promise.all completed. Results:`, results.length);
+        } catch (error) {
+          console.error(`[CHUNKS] Promise.all failed:`, error);
+          await db.updateExecutionLog(executionLogId, {
+            status: "error",
+            endTime: new Date(),
+            errorMessage: `Parallel processing failed: ${error instanceof Error ? error.message : String(error)}`
+          });
+          throw new Error(`Failed to process chunks in parallel: ${error instanceof Error ? error.message : String(error)}`);
+        }
+        
         const partialResults = results.filter(r => r !== null);
         console.log(`[CHUNKS] Parallel processing completed. Valid results: ${partialResults.length}/${chunks.length}`);
-
+        
+        if (partialResults.length === 0) {
+          console.error(`[CHUNKS] All chunks returned null - no valid results`);
+        } else {
+          console.log(`[CHUNKS] Sample partial result:`, JSON.stringify(partialResults[0]).substring(0, 200));
+        }
 
         // Merge results
         console.log(`[CHUNKS] Total partial results:`, partialResults.length);
@@ -378,13 +424,23 @@ Generate user stories for this part only. Return JSON format:
 
         // Validate that we have stories
         if (allStories.length === 0) {
+          console.error(`[CHUNKS] ❌ FATAL: No user stories generated`);
+          console.error(`[CHUNKS] Partial results breakdown:`);
+          partialResults.forEach((pr, idx) => {
+            console.error(`  - Result ${idx + 1}: ${pr.userStories?.length || 0} stories`);
+          });
           await db.updateExecutionLog(executionLogId, {
             status: "error",
             endTime: new Date(),
-            errorMessage: "No user stories generated from any chunk. AI may have returned empty responses."
+            errorMessage: `No user stories generated from ${chunks.length} chunks. ${partialResults.length} chunks returned valid JSON but 0 total stories.`
           });
           throw new Error("Failed to generate user stories from chunks. Please try a different prompt or check AI service.");
         }
+        
+        console.log(`[CHUNKS] ✅ Successfully merged ${allStories.length} stories from ${partialResults.length} chunks`);
+        allStories.forEach((story, idx) => {
+          console.log(`  - Story ${idx + 1}: "${story.title}" (${story.storyPoints} pts, ${story.tasks?.length || 0} tasks)`);
+        });
 
         // Generate consolidated feature title and description
         console.log(`[CHUNKS] Starting consolidation with timeout...`);
