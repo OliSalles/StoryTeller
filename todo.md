@@ -125,3 +125,10 @@
 - [x] Adicionar maxLength de 2000 caracteres no textarea
 - [x] Adicionar contador visual de caracteres (ex: "1523/2000")
 - [x] Testar que não é possível digitar mais de 2000 caracteres
+
+## Renomear App para "Bardo"
+- [x] Atualizar VITE_APP_TITLE para "Bardo" (não editável, atualizado no código)
+- [x] Atualizar referências no código frontend
+- [x] Atualizar package.json name para "bardo"
+- [x] Atualizar título da página HTML para "Bardo"
+- [x] Testar que o novo nome aparece em todos os lugares

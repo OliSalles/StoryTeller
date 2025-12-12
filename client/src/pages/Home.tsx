@@ -33,7 +33,7 @@ export default function Home() {
           </div>
           
           <h1 className="text-6xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
-            Feature AI Platform
+            Bardo
           </h1>
           
           <p className="text-xl text-foreground/70 max-w-2xl mx-auto leading-relaxed">
