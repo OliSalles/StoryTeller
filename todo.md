@@ -150,3 +150,9 @@
 - [x] Adicionar footer com "Desenvolvido por Lucas Salles" na homepage
 - [x] Remover símbolos/logos da Manus (não havia nenhum)
 - [x] Testar em todas as páginas
+
+## Atualizar Página de Login OAuth
+- [x] Página de login mostra "Feature AI Platform" ao invés de "Bardo" - REQUER AÇÃO MANUAL
+- [x] Página de login mostra "Desenvolvido por Manus" no rodapé - NÃO PODE SER ALTERADO (sistema OAuth)
+- [x] Investigar variáveis de ambiente VITE_APP_TITLE - é built-in, não editável via código
+- [x] Solução: Usuário deve alterar manualmente em Settings → General → Website name
