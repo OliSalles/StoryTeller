@@ -1,7 +1,9 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { protectedProcedure, router } from "./_core/trpc";
 import { invokeLLM } from "./_core/llm";
 import * as db from "./db";
+import { generateFeaturePdf } from "./pdf";
 
 /**
  * Global map to store active AbortControllers by execution log ID
@@ -943,5 +945,32 @@ Return your response in the following JSON format:
       }
       
       return { success: false, message: "Execution not found or already completed" };
+    }),
+
+  exportToPdf: protectedProcedure
+    .input(z.object({ featureId: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      const { featureId } = input;
+      
+      // Get feature details
+      const feature = await db.getFeatureById(featureId);
+      if (!feature) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Feature not found" });
+      }
+      
+      // Get user stories with tasks and acceptance criteria
+      const stories = await db.getUserStoriesByFeatureId(featureId);
+      
+      // Generate PDF
+      const pdfBuffer = await generateFeaturePdf(feature, stories);
+      
+      // Convert buffer to base64 for transmission
+      const pdfBase64 = pdfBuffer.toString('base64');
+      
+      return {
+        success: true,
+        pdfBase64,
+        filename: `feature-${featureId}-${feature.title.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.pdf`,
+      };
     }),
 });

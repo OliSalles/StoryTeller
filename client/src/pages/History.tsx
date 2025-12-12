@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { GlassCard } from "@/components/GlassCard";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
-import { Loader2, History as HistoryIcon, Eye, Calendar, FileText, Trash2 } from "lucide-react";
+import { Loader2, History as HistoryIcon, Eye, Calendar, FileText, Trash2, FileDown } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -20,6 +20,34 @@ export default function History() {
       alert(`Erro ao excluir: ${error.message}`);
     },
   });
+
+  const exportPdf = trpc.features.exportToPdf.useMutation({
+    onSuccess: (data) => {
+      // Convert base64 to blob and download
+      const byteCharacters = atob(data.pdfBase64);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = data.filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    },
+    onError: (error) => {
+      alert(`Erro ao exportar PDF: ${error.message}`);
+    },
+  });
+
+  const handleExportPdf = (featureId: number) => {
+    exportPdf.mutate({ featureId });
+  };
 
   if (isLoading) {
     return (
@@ -124,10 +152,26 @@ export default function History() {
                       setLocation(`/features/${feature.id}`);
                     }}
                   >
-                    <Eye className="w-4 h-4" />
+                            <Eye className="w-4 h-4" />
                     Visualizar
                   </Button>
-                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 bg-blue-500/10 border-blue-500/30 text-blue-400 hover:bg-blue-500/20 hover:text-blue-300"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleExportPdf(feature.id);
+                    }}
+                    disabled={exportPdf.isPending}
+                  >
+                    {exportPdf.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <FileDown className="w-4 h-4" />
+                    )}
+                    PDF
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"

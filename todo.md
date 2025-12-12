@@ -162,3 +162,10 @@
 - [x] Adicionar endpoint tRPC para excluir feature
 - [x] Adicionar botão "Excluir" no histórico
 - [x] Testar exclusão de features com vitest
+
+## Exportação para PDF
+- [x] Criar endpoint tRPC para gerar PDF da feature
+- [x] Implementar geração de PDF com formatação profissional (título, descrição, histórias, tasks, critérios)
+- [x] Adicionar botão "PDF" no histórico de features
+- [x] Instalar pdfkit e tipos
+- [x] Testar botão de exportação no frontend
