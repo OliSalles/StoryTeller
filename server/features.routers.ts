@@ -4,6 +4,12 @@ import { invokeLLM } from "./_core/llm";
 import * as db from "./db";
 
 /**
+ * Global map to store active AbortControllers by execution log ID
+ * This allows cancellation of ongoing AI requests
+ */
+const activeExecutions = new Map<number, AbortController>();
+
+/**
  * Helper function to add timeout to promises
  */
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> {
@@ -210,6 +216,11 @@ Return your response in the following JSON format:
         startTime,
       });
       console.log('[GENERATE] Created execution log:', executionLogId);
+
+      // Create AbortController for this execution
+      const abortController = new AbortController();
+      activeExecutions.set(executionLogId, abortController);
+      console.log('[GENERATE] Registered AbortController for execution:', executionLogId);
 
       try {
 
@@ -648,6 +659,10 @@ Return your response in the following JSON format:
           errorMessage: error instanceof Error ? error.message : String(error),
         });
         throw error;
+      } finally {
+        // Always cleanup AbortController from active executions
+        activeExecutions.delete(executionLogId);
+        console.log('[GENERATE] Cleaned up AbortController for execution:', executionLogId);
       }
     }),
 
@@ -817,5 +832,41 @@ Return your response in the following JSON format:
           error instanceof Error ? error.message : "Failed to export to Jira"
         );
       }
+    }),
+
+  /**
+   * Get active execution for current user
+   */
+  getActiveExecution: protectedProcedure
+    .query(async ({ ctx }) => {
+      // Find any active execution for this user
+      const activeExecution = await db.getActiveExecutionByUserId(ctx.user.id);
+      return activeExecution;
+    }),
+
+  /**
+   * Cancel an ongoing execution
+   */
+  cancelExecution: protectedProcedure
+    .input(z.object({ executionId: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      const abortController = activeExecutions.get(input.executionId);
+      
+      if (abortController) {
+        // Abort the ongoing request
+        abortController.abort();
+        activeExecutions.delete(input.executionId);
+        
+        // Update execution log status
+        await db.updateExecutionLog(input.executionId, {
+          status: "error",
+          endTime: new Date(),
+          errorMessage: "Execution cancelled by user"
+        });
+        
+        return { success: true, message: "Execution cancelled successfully" };
+      }
+      
+      return { success: false, message: "Execution not found or already completed" };
     }),
 });

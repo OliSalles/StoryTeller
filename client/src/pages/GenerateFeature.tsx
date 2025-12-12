@@ -20,6 +20,11 @@ export default function GenerateFeature() {
   const [prompt, setPrompt] = useState("");
   const [language, setLanguage] = useState<"pt" | "en">("pt");
   const generateMutation = trpc.features.generate.useMutation();
+  const cancelMutation = trpc.features.cancelExecution.useMutation();
+  const { data: activeExecution, refetch: refetchActiveExecution } = trpc.features.getActiveExecution.useQuery(
+    undefined,
+    { refetchInterval: generateMutation.isPending ? 2000 : false } // Poll every 2s while generating
+  );
 
   const handleGenerate = async () => {
     if (prompt.trim().length < 10) {
@@ -30,9 +35,23 @@ export default function GenerateFeature() {
     try {
       const result = await generateMutation.mutateAsync({ prompt, language });
       toast.success("Feature gerada com sucesso!");
+      await refetchActiveExecution(); // Refresh active execution status
       setLocation(`/features/${result.featureId}`);
     } catch (error) {
+      await refetchActiveExecution(); // Refresh even on error
       toast.error("Erro ao gerar feature. Tente novamente ou entre em contato com o suporte.");
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!activeExecution) return;
+    
+    try {
+      await cancelMutation.mutateAsync({ executionId: activeExecution.id });
+      toast.success("Geração cancelada com sucesso!");
+      await refetchActiveExecution();
+    } catch (error) {
+      toast.error("Erro ao cancelar geração.");
     }
   };
 
@@ -94,24 +113,45 @@ export default function GenerateFeature() {
             </p>
           </div>
 
-          <Button
-            onClick={handleGenerate}
-            disabled={generateMutation.isPending || prompt.trim().length < 10}
-            size="lg"
-            className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
-          >
-            {generateMutation.isPending ? (
-              <>
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                Gerando Feature...
-              </>
-            ) : (
-              <>
-                <Send className="w-5 h-5 mr-2" />
-                Gerar Feature
-              </>
+          <div className="space-y-3">
+            <Button
+              onClick={handleGenerate}
+              disabled={generateMutation.isPending || prompt.trim().length < 10}
+              size="lg"
+              className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
+            >
+              {generateMutation.isPending ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  Gerando Feature...
+                </>
+              ) : (
+                <>
+                  <Send className="w-5 h-5 mr-2" />
+                  Gerar Feature
+                </>
+              )}
+            </Button>
+            
+            {activeExecution && (
+              <Button
+                onClick={handleCancel}
+                disabled={cancelMutation.isPending}
+                size="lg"
+                variant="destructive"
+                className="w-full"
+              >
+                {cancelMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Cancelando...
+                  </>
+                ) : (
+                  "Cancelar Geração"
+                )}
+              </Button>
             )}
-          </Button>
+          </div>
         </div>
       </GlassCard>
 

@@ -102,3 +102,11 @@
 - [x] Investigar processamento lento/travado em prompts longos com 4 chunks (6613 caracteres)
 - [x] Otimizar processamento de chunks: mudar de sequencial para paralelo com Promise.all
 - [x] Adicionar timeout nas chamadas da IA para evitar travamento
+
+## Cancelamento de Execuções
+- [x] Limpar execuções travadas em "Processando" no banco de dados
+- [x] Implementar AbortController no backend para cancelar requisições da IA
+- [x] Criar endpoint tRPC para abortar execução em andamento
+- [x] Adicionar botão "Cancelar" no frontend durante processamento
+- [x] Atualizar status da execução para "error" ao abortar
+- [x] Testar cancelamento com prompt longo

@@ -1,4 +1,4 @@
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser,
@@ -332,4 +332,20 @@ export async function getExecutionLogById(id: number) {
   if (!db) return undefined;
   const result = await db.select().from(executionLogs).where(eq(executionLogs.id, id)).limit(1);
   return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getActiveExecutionByUserId(userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(executionLogs)
+    .where(and(
+      eq(executionLogs.userId, userId),
+      or(
+        eq(executionLogs.status, "started"),
+        eq(executionLogs.status, "processing")
+      )
+    ))
+    .orderBy(desc(executionLogs.createdAt))
+    .limit(1);
+  return result.length > 0 ? result[0] : null;
 }
