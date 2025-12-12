@@ -98,3 +98,7 @@
 - [x] Exibir lista de execuções com status (sucesso/erro)
 - [x] Permitir visualizar logs detalhados de cada execução
 - [ ] Adicionar filtros por status e data
+
+- [x] Investigar processamento lento/travado em prompts longos com 4 chunks (6613 caracteres)
+- [x] Otimizar processamento de chunks: mudar de sequencial para paralelo com Promise.all
+- [x] Adicionar timeout nas chamadas da IA para evitar travamento

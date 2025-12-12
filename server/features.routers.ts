@@ -4,6 +4,18 @@ import { invokeLLM } from "./_core/llm";
 import * as db from "./db";
 
 /**
+ * Helper function to add timeout to promises
+ */
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => 
+      setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
+    )
+  ]);
+}
+
+/**
  * Helper function to clean markdown code blocks from JSON responses
  */
 function cleanJsonResponse(content: string): string {
@@ -219,20 +231,20 @@ Return your response in the following JSON format:
         });
         console.log(`[CHUNKS] Processing ${chunks.length} chunks`);
 
-        // Process each chunk
-        const partialResults: any[] = [];
-        
+        // Process all chunks in parallel
         const languageInstructions = input.language === "pt" 
-          ? "Responda em português brasileiro. Use linguagem clara e profissional."
+          ? "Responda em portugu\u00eas brasileiro. Use linguagem clara e profissional."
           : "Respond in English. Use clear and professional language.";
 
-        for (let i = 0; i < chunks.length; i++) {
+        console.log(`[CHUNKS] Starting parallel processing of ${chunks.length} chunks`);
+        
+        const chunkPromises = chunks.map(async (chunk, i) => {
           const chunkPrompt = `You are processing part ${i + 1} of ${chunks.length} of a large feature description.
 
 ${languageInstructions}
 
 Part ${i + 1} content:
-${chunks[i]}
+${chunk}
 
 Generate user stories for this part only. Return JSON format:
 {
@@ -254,88 +266,117 @@ Generate user stories for this part only. Return JSON format:
   ]
 }`;
 
-          const response = await invokeLLM({
-            messages: [
-              { role: "system", content: chunkPrompt },
-              { role: "user", content: chunks[i] },
-            ],
-            response_format: {
-              type: "json_schema",
-              json_schema: {
-                name: "user_stories_chunk",
-                strict: true,
-                schema: {
-                  type: "object",
-                  properties: {
-                    userStories: {
-                      type: "array",
-                      items: {
-                        type: "object",
-                        properties: {
-                          title: { type: "string" },
-                          description: { type: "string" },
-                          priority: { type: "string", enum: ["low", "medium", "high", "critical"] },
-                          storyPoints: { type: "integer", enum: [1, 2, 3, 5, 8, 13, 21] },
-                          acceptanceCriteria: {
-                            type: "array",
-                            items: { type: "string" }
-                          },
-                          tasks: {
-                            type: "array",
-                            items: {
-                              type: "object",
-                              properties: {
-                                title: { type: "string" },
-                                description: { type: "string" },
-                                estimatedHours: { type: "integer" }
-                              },
-                              required: ["title", "description", "estimatedHours"],
-                              additionalProperties: false
+          try {
+            console.log(`[Chunk ${i + 1}] Starting processing with 2-minute timeout...`);
+            const response = await withTimeout(
+              invokeLLM({
+              messages: [
+                { role: "system", content: chunkPrompt },
+                { role: "user", content: chunk },
+              ],
+              response_format: {
+                type: "json_schema",
+                json_schema: {
+                  name: "user_stories_chunk",
+                  strict: true,
+                  schema: {
+                    type: "object",
+                    properties: {
+                      userStories: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            title: { type: "string" },
+                            description: { type: "string" },
+                            priority: { type: "string", enum: ["low", "medium", "high", "critical"] },
+                            storyPoints: { type: "integer", enum: [1, 2, 3, 5, 8, 13, 21] },
+                            acceptanceCriteria: {
+                              type: "array",
+                              items: { type: "string" }
+                            },
+                            tasks: {
+                              type: "array",
+                              items: {
+                                type: "object",
+                                properties: {
+                                  title: { type: "string" },
+                                  description: { type: "string" },
+                                  estimatedHours: { type: "integer" }
+                                },
+                                required: ["title", "description", "estimatedHours"],
+                                additionalProperties: false
+                              }
                             }
-                          }
-                        },
-                        required: ["title", "description", "priority", "storyPoints", "acceptanceCriteria", "tasks"],
-                        additionalProperties: false
+                          },
+                          required: ["title", "description", "priority", "storyPoints", "acceptanceCriteria", "tasks"],
+                          additionalProperties: false
+                        }
                       }
-                    }
-                  },
-                  required: ["userStories"],
-                  additionalProperties: false
+                    },
+                    required: ["userStories"],
+                    additionalProperties: false
+                  }
                 }
               }
-            }
-          });
+            }),
+            120000, // 2 minutes timeout
+            `Chunk ${i + 1} processing timeout after 2 minutes`
+          );
 
-          if (!response || !response.choices || response.choices.length === 0) {
-            console.error(`[Chunk ${i + 1}] Resposta da IA vazia ou inválida`);
-            continue;
-          }
-          
-          const content = response.choices[0]?.message?.content;
-          console.log(`[Chunk ${i + 1}] Content received:`, content ? 'YES' : 'NO');
-          if (content) {
-            const contentStr = typeof content === 'string' ? content : JSON.stringify(content);
-            console.log(`[Chunk ${i + 1}] Content string length:`, contentStr.length);
-            const cleanedStr = cleanJsonResponse(contentStr);
-            console.log(`[Chunk ${i + 1}] Cleaned string length:`, cleanedStr.length);
-            const parsed = JSON.parse(cleanedStr);
-            console.log(`[Chunk ${i + 1}] Parsed stories count:`, parsed.userStories?.length || 0);
-            console.log(`[Chunk ${i + 1}] Parsed object keys:`, Object.keys(parsed));
-            if (parsed.userStories && parsed.userStories.length > 0) {
-              console.log(`[Chunk ${i + 1}] First story title:`, parsed.userStories[0]?.title);
+            if (!response || !response.choices || response.choices.length === 0) {
+              console.error(`[Chunk ${i + 1}] Resposta da IA vazia ou inv\u00e1lida`);
+              return null;
             }
-            partialResults.push(parsed);
-          } else {
-            console.error(`[Chunk ${i + 1}] No content in response`);
+            
+            const content = response.choices[0]?.message?.content;
+            console.log(`[Chunk ${i + 1}] Content received:`, content ? 'YES' : 'NO');
+            if (content) {
+              const contentStr = typeof content === 'string' ? content : JSON.stringify(content);
+              console.log(`[Chunk ${i + 1}] Content string length:`, contentStr.length);
+              const cleanedStr = cleanJsonResponse(contentStr);
+              console.log(`[Chunk ${i + 1}] Cleaned string length:`, cleanedStr.length);
+              const parsed = JSON.parse(cleanedStr);
+              console.log(`[Chunk ${i + 1}] Parsed stories count:`, parsed.userStories?.length || 0);
+              console.log(`[Chunk ${i + 1}] Parsed object keys:`, Object.keys(parsed));
+              if (parsed.userStories && parsed.userStories.length > 0) {
+                console.log(`[Chunk ${i + 1}] First story title:`, parsed.userStories[0]?.title);
+              }
+              console.log(`[Chunk ${i + 1}] Processing completed successfully`);
+              return parsed;
+            } else {
+              console.error(`[Chunk ${i + 1}] No content in response`);
+              return null;
+            }
+          } catch (error) {
+            console.error(`[Chunk ${i + 1}] Error processing:`, error);
+            return null;
           }
-        }
+        });
+
+        // Wait for all chunks to complete in parallel
+        const results = await Promise.all(chunkPromises);
+        const partialResults = results.filter(r => r !== null);
+        console.log(`[CHUNKS] Parallel processing completed. Valid results: ${partialResults.length}/${chunks.length}`);
+
 
         // Merge results
         console.log(`[CHUNKS] Total partial results:`, partialResults.length);
         const allStories = partialResults.flatMap(r => r.userStories || []);
         console.log(`[CHUNKS] Total stories after merge:`, allStories.length);
 
+        // Validate that we have stories
+        if (allStories.length === 0) {
+          await db.updateExecutionLog(executionLogId, {
+            status: "error",
+            endTime: new Date(),
+            errorMessage: "No user stories generated from any chunk. AI may have returned empty responses."
+          });
+          throw new Error("Failed to generate user stories from chunks. Please try a different prompt or check AI service.");
+        }
+
         // Generate consolidated feature title and description
+        console.log(`[CHUNKS] Starting consolidation with timeout...`);
         const consolidationPrompt = `You are consolidating multiple parts of a feature specification.
 
 ${languageInstructions}
@@ -353,13 +394,16 @@ Create a comprehensive feature title and description that encompasses all parts.
   }
 }`;
 
-        const consolidationResponse = await invokeLLM({
-          messages: [
-            { role: "system", content: consolidationPrompt },
-            { role: "user", content: input.prompt },
-          ],
-
-        });
+        const consolidationResponse = await withTimeout(
+          invokeLLM({
+            messages: [
+              { role: "system", content: consolidationPrompt },
+              { role: "user", content: input.prompt },
+            ],
+          }),
+          120000, // 2 minutes timeout
+          "Consolidation processing timeout after 2 minutes"
+        );
 
         const consolidationContent = consolidationResponse.choices[0]?.message?.content;
         if (!consolidationContent) {
