@@ -64,3 +64,9 @@
 - [x] Adicionar visualização de tasks na interface de detalhes
 - [ ] Exportar tasks para Jira como subtasks
 - [ ] Exportar tasks para Azure DevOps como tasks vinculadas
+
+## Simplificação de Configuração
+- [x] Remover página de configuração de LLM
+- [x] Remover rotas e referências de LLM config
+- [x] Usar sempre LLM da Manus por padrão
+- [x] Atualizar navegação removendo Config. LLM

@@ -30,7 +30,6 @@ import { Button } from "./ui/button";
 const menuItems = [
   { icon: Sparkles, label: "Gerar Feature", path: "/generate" },
   { icon: History, label: "Histórico", path: "/history" },
-  { icon: Settings, label: "Config. LLM", path: "/config/llm" },
   { icon: LayoutDashboard, label: "Config. Jira", path: "/config/jira" },
   { icon: LayoutDashboard, label: "Config. Azure DevOps", path: "/config/azure-devops" },
 ];

@@ -40,8 +40,6 @@ export const featuresRouter = router({
 
       const existingStories = await db.getUserStoriesByFeatureId(input.featureId);
 
-      // Get user's LLM config
-      const llmConfig = await db.getLlmConfigByUserId(ctx.user.id);
       
       const languageInstructions = input.language === "pt" 
         ? "Responda em português brasileiro. Use linguagem clara e profissional."
@@ -99,8 +97,7 @@ Return your response in the following JSON format:
           { role: "system", content: systemPrompt },
           { role: "user", content: input.refinementPrompt },
         ],
-        ...(llmConfig?.temperature && { temperature: parseFloat(llmConfig.temperature) }),
-        ...(llmConfig?.maxTokens && { max_tokens: llmConfig.maxTokens }),
+
       });
 
       const content = response.choices[0]?.message?.content;
@@ -214,8 +211,7 @@ Generate user stories for this part only. Return JSON format:
               { role: "system", content: chunkPrompt },
               { role: "user", content: chunks[i] },
             ],
-            ...(llmConfig?.temperature && { temperature: parseFloat(llmConfig.temperature) }),
-            ...(llmConfig?.maxTokens && { max_tokens: llmConfig.maxTokens }),
+
           });
 
           const content = response.choices[0]?.message?.content;
@@ -252,7 +248,7 @@ Create a comprehensive feature title and description that encompasses all parts.
             { role: "system", content: consolidationPrompt },
             { role: "user", content: input.prompt },
           ],
-          ...(llmConfig?.temperature && { temperature: parseFloat(llmConfig.temperature) }),
+
         });
 
         const consolidationContent = consolidationResponse.choices[0]?.message?.content;

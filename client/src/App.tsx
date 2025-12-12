@@ -6,7 +6,7 @@ import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
-import LLMConfig from "./pages/LLMConfig";
+
 import JiraConfig from "./pages/JiraConfig";
 import AzureDevOpsConfig from "./pages/AzureDevOpsConfig";
 import GenerateFeature from "./pages/GenerateFeature";
@@ -39,12 +39,6 @@ function Router() {
       <Route path={"/features/:id"}>
         <DashboardLayout>
           <FeatureDetail />
-        </DashboardLayout>
-      </Route>
-
-      <Route path={"/config/llm"}>
-        <DashboardLayout>
-          <LLMConfig />
         </DashboardLayout>
       </Route>
 
