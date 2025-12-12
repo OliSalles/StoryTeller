@@ -139,3 +139,8 @@
 - [x] Atualizar referências ao logo no código (Home.tsx, DashboardLayout.tsx)
 - [x] Criar favicon a partir do logo (favicon.png)
 - [x] Testar logo em todas as páginas
+
+## Melhorias de Branding e UX
+- [x] Atualizar subtítulo da homepage com tema de bardo
+- [x] Adicionar animação sutil ao logo na homepage (Framer Motion)
+- [x] Criar versão simplificada do logo (apenas ícone) para loading states

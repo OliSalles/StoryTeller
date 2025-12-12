@@ -5,6 +5,7 @@ import { Loader2, Sparkles, GitBranch, Zap, CheckCircle2 } from "lucide-react";
 import { getLoginUrl } from "@/const";
 import { useEffect } from "react";
 import { useLocation } from "wouter";
+import { motion } from "framer-motion";
 
 export default function Home() {
   const { user, loading, isAuthenticated } = useAuth();
@@ -28,17 +29,22 @@ export default function Home() {
     <div className="min-h-screen flex flex-col items-center justify-center p-6">
       <div className="max-w-5xl w-full space-y-12">
         <div className="text-center space-y-6">
-          <div className="inline-flex items-center justify-center">
+          <motion.div 
+            className="inline-flex items-center justify-center"
+            initial={{ opacity: 0, scale: 0.8, rotateY: -180 }}
+            animate={{ opacity: 1, scale: 1, rotateY: 0 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+          >
             <img src="/bardo-logo.png" alt="Bardo Logo" className="w-32 h-32" />
-          </div>
+          </motion.div>
           
           <h1 className="text-6xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
             Bardo
           </h1>
           
           <p className="text-xl text-foreground/70 max-w-2xl mx-auto leading-relaxed">
-            Gere features completas com histórias de usuário e critérios de aceite usando inteligência artificial. 
-            Exporte diretamente para o Jira e acelere seu processo de desenvolvimento.
+            Transforme ideias em épicas histórias de usuário. Como um bardo medieval tecia narrativas, 
+            nossa IA cria features completas com critérios de aceite e exporta para Jira.
           </p>
         </div>
 
