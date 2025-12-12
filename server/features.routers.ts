@@ -293,16 +293,28 @@ Generate user stories for this part only. Return JSON format:
           }
           
           const content = response.choices[0]?.message?.content;
+          console.log(`[Chunk ${i + 1}] Content received:`, content ? 'YES' : 'NO');
           if (content) {
             const contentStr = typeof content === 'string' ? content : JSON.stringify(content);
+            console.log(`[Chunk ${i + 1}] Content string length:`, contentStr.length);
             const cleanedStr = cleanJsonResponse(contentStr);
+            console.log(`[Chunk ${i + 1}] Cleaned string length:`, cleanedStr.length);
             const parsed = JSON.parse(cleanedStr);
+            console.log(`[Chunk ${i + 1}] Parsed stories count:`, parsed.userStories?.length || 0);
+            console.log(`[Chunk ${i + 1}] Parsed object keys:`, Object.keys(parsed));
+            if (parsed.userStories && parsed.userStories.length > 0) {
+              console.log(`[Chunk ${i + 1}] First story title:`, parsed.userStories[0]?.title);
+            }
             partialResults.push(parsed);
+          } else {
+            console.error(`[Chunk ${i + 1}] No content in response`);
           }
         }
 
         // Merge results
+        console.log(`[CHUNKS] Total partial results:`, partialResults.length);
         const allStories = partialResults.flatMap(r => r.userStories || []);
+        console.log(`[CHUNKS] Total stories after merge:`, allStories.length);
 
         // Generate consolidated feature title and description
         const consolidationPrompt = `You are consolidating multiple parts of a feature specification.

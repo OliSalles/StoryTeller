@@ -1,0 +1,35 @@
+{
+  "query": "SELECT f.id, f.title, COUNT(us.id) as story_count FROM features f LEFT JOIN user_stories us ON f.id = us.feature_id WHERE f.user_id = 1 GROUP BY f.id ORDER BY f.created_at DESC LIMIT 5",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user V22mdELEt8WxYWD.c9cf6d5eba9c --database HUntQsx8BjuPDjNs8cJdwo --execute SELECT f.id, f.title, COUNT(us.id) as story_count FROM features f LEFT JOIN user_stories us ON f.id = us.feature_id WHERE f.user_id = 1 GROUP BY f.id ORDER BY f.created_at DESC LIMIT 5",
+  "rows": [
+    {
+      "id": "120002",
+      "title": "Refatoração e Otimização do Fluxo de Precificação (PricingTRE) no Salesforce",
+      "story_count": "0"
+    },
+    {
+      "id": "120001",
+      "title": "Dashboard de Análise de Vendas",
+      "story_count": "4"
+    },
+    {
+      "id": "90001",
+      "title": "Sistema de Gerenciamento de Tarefas com Priorização e Prazos",
+      "story_count": "4"
+    },
+    {
+      "id": "60001",
+      "title": "Gerenciamento Básico de Tarefas",
+      "story_count": "6"
+    },
+    {
+      "id": "30001",
+      "title": "Refatoração e Implementação do Motor de Precificação (Pricing Engine) no Salesforce",
+      "story_count": "5"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\ttitle\tstory_count\n120002\tRefatoração e Otimização do Fluxo de Precificação (PricingTRE) no Salesforce\t0\n120001\tDashboard de Análise de Vendas\t4\n90001\tSistema de Gerenciamento de Tarefas com Priorização e Prazos\t4\n60001\tGerenciamento Básico de Tarefas\t6\n30001\tRefatoração e Implementação do Motor de Precificação (Pricing Engine) no Salesforce\t5\n",
+  "stderr": "",
+  "execution_time_ms": 61
+}

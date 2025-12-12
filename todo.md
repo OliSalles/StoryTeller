@@ -83,3 +83,7 @@
 
 - [x] Corrigir erro de parse JSON quando IA retorna resposta com bloco markdown (```json ... ```)
 - [x] Adicionar função de limpeza de markdown antes do JSON.parse
+
+- [ ] Corrigir bug de retorno de 0 histórias na geração de features
+- [ ] Verificar se IA está retornando histórias no JSON
+- [ ] Verificar se parse está extraindo histórias corretamente
