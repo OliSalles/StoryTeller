@@ -5,6 +5,7 @@ import { publicProcedure, router } from "./_core/trpc";
 import { azureDevOpsRouter } from "./azureDevOps.routers";
 import { configRouter } from "./config.routers";
 import { featuresRouter } from "./features.routers";
+import { executionsRouter } from "./executions.routers";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -23,6 +24,7 @@ export const appRouter = router({
 
   config: configRouter,
   features: featuresRouter,
+  executions: executionsRouter,
 
   // Feature routers added
   // todo: router({

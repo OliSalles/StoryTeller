@@ -87,3 +87,14 @@
 - [ ] Corrigir bug de retorno de 0 histórias na geração de features
 - [ ] Verificar se IA está retornando histórias no JSON
 - [ ] Verificar se parse está extraindo histórias corretamente
+
+## Aba de Execuções e Logs
+- [x] Criar tabela de execuções no banco de dados (execution_logs)
+- [x] Adicionar campos: id, userId, featureId, status, startTime, endTime, promptLength, chunksCount, totalStories, aiResponse, errorMessage
+- [x] Registrar início de cada geração de feature
+- [x] Registrar resposta completa da IA em cada chunk
+- [x] Registrar tempo de processamento e status final
+- [x] Criar página "Execuções" no menu de navegação
+- [x] Exibir lista de execuções com status (sucesso/erro)
+- [x] Permitir visualizar logs detalhados de cada execução
+- [ ] Adicionar filtros por status e data

@@ -17,6 +17,8 @@ import {
   InsertAcceptanceCriterion,
   tasks,
   InsertTask,
+  executionLogs,
+  InsertExecutionLog,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -303,4 +305,31 @@ export async function deleteTasksByStoryId(userStoryId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.delete(tasks).where(eq(tasks.userStoryId, userStoryId));
+}
+
+// Execution Logs functions
+export async function createExecutionLog(log: InsertExecutionLog) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(executionLogs).values(log);
+  return Number(result[0].insertId);
+}
+
+export async function updateExecutionLog(id: number, updates: Partial<InsertExecutionLog>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(executionLogs).set(updates).where(eq(executionLogs.id, id));
+}
+
+export async function getExecutionLogsByUserId(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(executionLogs).where(eq(executionLogs.userId, userId)).orderBy(desc(executionLogs.createdAt));
+}
+
+export async function getExecutionLogById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(executionLogs).where(eq(executionLogs.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
 }

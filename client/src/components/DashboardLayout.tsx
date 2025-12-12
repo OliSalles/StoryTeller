@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Sparkles, History, Settings } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, Sparkles, History, Settings, FileText } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -30,6 +30,7 @@ import { Button } from "./ui/button";
 const menuItems = [
   { icon: Sparkles, label: "Gerar Feature", path: "/generate" },
   { icon: History, label: "Histórico", path: "/history" },
+  { icon: FileText, label: "Execuções", path: "/executions" },
   { icon: LayoutDashboard, label: "Config. Jira", path: "/config/jira" },
   { icon: LayoutDashboard, label: "Config. Azure DevOps", path: "/config/azure-devops" },
 ];

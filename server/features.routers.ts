@@ -185,9 +185,21 @@ Return your response in the following JSON format:
       })
     )
     .mutation(async ({ ctx, input }) => {
+      const startTime = new Date();
       console.log('[GENERATE] Starting feature generation for user:', ctx.user.id);
       console.log('[GENERATE] Prompt length:', input.prompt.length);
       console.log('[GENERATE] Language:', input.language);
+
+      // Create execution log
+      const executionLogId = await db.createExecutionLog({
+        userId: ctx.user.id,
+        status: "started",
+        promptLength: input.prompt.length,
+        startTime,
+      });
+      console.log('[GENERATE] Created execution log:', executionLogId);
+
+      try {
 
       // Check if prompt is large (> 2000 characters) and needs to be split
       const CHUNK_SIZE = 2000;
@@ -199,6 +211,13 @@ Return your response in the following JSON format:
         for (let i = 0; i < input.prompt.length; i += CHUNK_SIZE) {
           chunks.push(input.prompt.substring(i, i + CHUNK_SIZE));
         }
+        
+        // Update execution log with chunks count
+        await db.updateExecutionLog(executionLogId, {
+          status: "processing",
+          chunksCount: chunks.length,
+        });
+        console.log(`[CHUNKS] Processing ${chunks.length} chunks`);
 
         // Process each chunk
         const partialResults: any[] = [];
@@ -567,7 +586,25 @@ Return your response in the following JSON format:
         }
       }
 
+      // Update execution log with success
+      await db.updateExecutionLog(executionLogId, {
+        status: "success",
+        featureId,
+        totalStories: generated.userStories?.length || 0,
+        endTime: new Date(),
+        aiResponse: JSON.stringify(generated).substring(0, 10000), // Limit to 10KB
+      });
+
       return { featureId, generated };
+      } catch (error) {
+        // Update execution log with error
+        await db.updateExecutionLog(executionLogId, {
+          status: "error",
+          endTime: new Date(),
+          errorMessage: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
     }),
 
   list: protectedProcedure.query(async ({ ctx }) => {

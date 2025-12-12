@@ -12,6 +12,7 @@ import AzureDevOpsConfig from "./pages/AzureDevOpsConfig";
 import GenerateFeature from "./pages/GenerateFeature";
 import FeatureDetail from "./pages/FeatureDetail";
 import History from "./pages/History";
+import Executions from "./pages/Executions";
 
 function Router() {
   return (
@@ -51,6 +52,12 @@ function Router() {
       <Route path={"/config/azure-devops"}>
         <DashboardLayout>
           <AzureDevOpsConfig />
+        </DashboardLayout>
+      </Route>
+
+      <Route path={"/executions"}>
+        <DashboardLayout>
+          <Executions />
         </DashboardLayout>
       </Route>
 

@@ -154,3 +154,24 @@ export const tasks = mysqlTable("tasks", {
 
 export type Task = typeof tasks.$inferSelect;
 export type InsertTask = typeof tasks.$inferInsert;
+
+/**
+ * Execution logs table for debugging feature generation
+ */
+export const executionLogs = mysqlTable("execution_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("user_id").notNull(),
+  featureId: int("feature_id"),
+  status: mysqlEnum("status", ["started", "processing", "success", "error"]).notNull(),
+  promptLength: int("prompt_length").notNull(),
+  chunksCount: int("chunks_count").default(0),
+  totalStories: int("total_stories").default(0),
+  aiResponse: text("ai_response"),
+  errorMessage: text("error_message"),
+  startTime: timestamp("start_time").defaultNow().notNull(),
+  endTime: timestamp("end_time"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type ExecutionLog = typeof executionLogs.$inferSelect;
+export type InsertExecutionLog = typeof executionLogs.$inferInsert;
