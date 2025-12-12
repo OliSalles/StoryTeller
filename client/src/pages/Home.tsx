@@ -28,8 +28,8 @@ export default function Home() {
     <div className="min-h-screen flex flex-col items-center justify-center p-6">
       <div className="max-w-5xl w-full space-y-12">
         <div className="text-center space-y-6">
-          <div className="inline-flex items-center justify-center p-4 rounded-2xl bg-gradient-to-br from-primary/30 to-primary/10 backdrop-blur-sm">
-            <Sparkles className="w-12 h-12 text-primary" />
+          <div className="inline-flex items-center justify-center">
+            <img src="/bardo-logo.png" alt="Bardo Logo" className="w-32 h-32" />
           </div>
           
           <h1 className="text-6xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">

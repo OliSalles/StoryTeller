@@ -173,8 +173,9 @@ function DashboardLayoutContent({
               </button>
               {!isCollapsed ? (
                 <div className="flex items-center gap-2 min-w-0">
+                  <img src="/bardo-logo.png" alt="Bardo" className="h-8 w-8 shrink-0" />
                   <span className="font-semibold tracking-tight truncate">
-                    Navigation
+                    Bardo
                   </span>
                 </div>
               ) : null}

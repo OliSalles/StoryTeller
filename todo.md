@@ -132,3 +132,10 @@
 - [x] Atualizar package.json name para "bardo"
 - [x] Atualizar título da página HTML para "Bardo"
 - [x] Testar que o novo nome aparece em todos os lugares
+
+## Logotipo Temático "Bardo"
+- [x] Gerar logotipo com tema medieval (contador de histórias/cantor)
+- [x] Salvar logo no projeto (client/public/bardo-logo.png)
+- [x] Atualizar referências ao logo no código (Home.tsx, DashboardLayout.tsx)
+- [x] Criar favicon a partir do logo (favicon.png)
+- [x] Testar logo em todas as páginas
