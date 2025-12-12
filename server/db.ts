@@ -15,6 +15,8 @@ import {
   InsertUserStory,
   acceptanceCriteria,
   InsertAcceptanceCriterion,
+  tasks,
+  InsertTask,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -280,4 +282,25 @@ export async function deleteAcceptanceCriteriaByStoryId(userStoryId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.delete(acceptanceCriteria).where(eq(acceptanceCriteria.userStoryId, userStoryId));
+}
+
+// Task queries
+export async function createTask(task: InsertTask) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.insert(tasks).values(task);
+  const result = await db.select().from(tasks).where(eq(tasks.userStoryId, task.userStoryId)).orderBy(desc(tasks.id)).limit(1);
+  return result[0]?.id ?? 0;
+}
+
+export async function getTasksByStoryId(userStoryId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(tasks).where(eq(tasks.userStoryId, userStoryId)).orderBy(tasks.orderIndex);
+}
+
+export async function deleteTasksByStoryId(userStoryId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(tasks).where(eq(tasks.userStoryId, userStoryId));
 }

@@ -57,3 +57,10 @@
 - [x] Adicionar interface de edição de histórias de usuário
 - [x] Implementar refinamento com novos prompts de IA sobre feature existente
 - [ ] Adicionar histórico de versões/refinamentos
+
+## Tasks Técnicas
+- [x] Criar tabela de tasks no banco de dados
+- [x] Atualizar prompt da IA para gerar tasks para cada história
+- [x] Adicionar visualização de tasks na interface de detalhes
+- [ ] Exportar tasks para Jira como subtasks
+- [ ] Exportar tasks para Azure DevOps como tasks vinculadas

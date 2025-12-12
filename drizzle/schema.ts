@@ -136,3 +136,21 @@ export const acceptanceCriteria = mysqlTable("acceptance_criteria", {
 
 export type AcceptanceCriterion = typeof acceptanceCriteria.$inferSelect;
 export type InsertAcceptanceCriterion = typeof acceptanceCriteria.$inferInsert;
+/**
+ * Tasks table - stores technical tasks for each user story
+ */
+export const tasks = mysqlTable("tasks", {
+  id: int("id").autoincrement().primaryKey(),
+  userStoryId: int("user_story_id").notNull(),
+  title: varchar("title", { length: 512 }).notNull(),
+  description: text("description"),
+  estimatedHours: int("estimated_hours"),
+  jiraIssueKey: varchar("jira_issue_key", { length: 64 }),
+  azureDevOpsWorkItemId: int("azure_devops_work_item_id"),
+  orderIndex: int("order_index").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Task = typeof tasks.$inferSelect;
+export type InsertTask = typeof tasks.$inferInsert;

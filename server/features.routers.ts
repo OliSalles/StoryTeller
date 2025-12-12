@@ -82,6 +82,13 @@ Return your response in the following JSON format:
       "acceptanceCriteria": [
         "Criterion 1",
         "Criterion 2"
+      ],
+      "tasks": [
+        {
+          "title": "Task title",
+          "description": "Technical task description",
+          "estimatedHours": 2
+        }
       ]
     }
   ]
@@ -130,6 +137,19 @@ Return your response in the following JSON format:
             await db.createAcceptanceCriterion({
               userStoryId: storyId,
               criterion: story.acceptanceCriteria[j],
+              orderIndex: j,
+            });
+          }
+        }
+
+        // Save tasks
+        if (story.tasks && Array.isArray(story.tasks)) {
+          for (let j = 0; j < story.tasks.length; j++) {
+            await db.createTask({
+              userStoryId: storyId,
+              title: story.tasks[j].title,
+              description: story.tasks[j].description,
+              estimatedHours: story.tasks[j].estimatedHours,
               orderIndex: j,
             });
           }
@@ -314,6 +334,13 @@ Return your response in the following JSON format:
       "acceptanceCriteria": [
         "Criterion 1",
         "Criterion 2"
+      ],
+      "tasks": [
+        {
+          "title": "Task title",
+          "description": "Technical task description",
+          "estimatedHours": 2
+        }
       ]
     }
   ]
@@ -358,8 +385,21 @@ Return your response in the following JSON format:
                         type: "array",
                         items: { type: "string" },
                       },
+                      tasks: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            title: { type: "string" },
+                            description: { type: "string" },
+                            estimatedHours: { type: "number" },
+                          },
+                          required: ["title", "description", "estimatedHours"],
+                          additionalProperties: false,
+                        },
+                      },
                     },
-                    required: ["title", "description", "priority", "storyPoints", "acceptanceCriteria"],
+                    required: ["title", "description", "priority", "storyPoints", "acceptanceCriteria", "tasks"],
                     additionalProperties: false,
                   },
                 },
@@ -409,6 +449,17 @@ Return your response in the following JSON format:
             orderIndex: j,
           });
         }
+
+        // Save tasks
+        for (let j = 0; j < story.tasks.length; j++) {
+          await db.createTask({
+            userStoryId: storyId,
+            title: story.tasks[j].title,
+            description: story.tasks[j].description,
+            estimatedHours: story.tasks[j].estimatedHours,
+            orderIndex: j,
+          });
+        }
       }
 
       return { featureId, generated };
@@ -428,15 +479,16 @@ Return your response in the following JSON format:
 
       const userStories = await db.getUserStoriesByFeatureId(input.id);
       
-      // Get acceptance criteria for each story
-      const storiesWithCriteria = await Promise.all(
+      // Get acceptance criteria and tasks for each story
+      const storiesWithDetails = await Promise.all(
         userStories.map(async (story) => {
           const criteria = await db.getAcceptanceCriteriaByStoryId(story.id);
-          return { ...story, acceptanceCriteria: criteria };
+          const tasks = await db.getTasksByStoryId(story.id);
+          return { ...story, acceptanceCriteria: criteria, tasks };
         })
       );
 
-      return { feature, userStories: storiesWithCriteria };
+      return { feature, userStories: storiesWithDetails };
     }),
 
   update: protectedProcedure

@@ -299,6 +299,37 @@ export default function FeatureDetail() {
                     </div>
                   )}
 
+                  {story.tasks && story.tasks.length > 0 && (
+                    <div className="pl-11 space-y-2">
+                      <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                        Tasks Técnicas
+                      </p>
+                      <div className="space-y-2">
+                        {story.tasks.map((task: any, taskIndex: number) => (
+                          <div
+                            key={task.id}
+                            className="flex items-start gap-3 text-sm p-3 rounded bg-white/[0.02] border border-white/5"
+                          >
+                            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary font-semibold text-xs flex-shrink-0">
+                              {taskIndex + 1}
+                            </span>
+                            <div className="flex-1 space-y-1">
+                              <p className="font-medium text-foreground">{task.title}</p>
+                              {task.description && (
+                                <p className="text-muted-foreground text-xs">{task.description}</p>
+                              )}
+                            </div>
+                            {task.estimatedHours && (
+                              <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/30 flex-shrink-0">
+                                {task.estimatedHours}h
+                              </Badge>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {story.jiraIssueKey && (
                     <div className="pl-11">
                       <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/30">

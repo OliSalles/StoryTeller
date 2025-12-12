@@ -1,0 +1,24 @@
+Adicionar ao JSON de resposta da IA:
+
+"tasks": [
+  {
+    "title": "Task title",
+    "description": "Technical task description",
+    "estimatedHours": 2
+  }
+]
+
+Adicionar após criar critérios de aceite:
+
+// Create tasks for this story
+if (story.tasks && Array.isArray(story.tasks)) {
+  for (let j = 0; j < story.tasks.length; j++) {
+    await db.createTask({
+      userStoryId: storyId,
+      title: story.tasks[j].title,
+      description: story.tasks[j].description || "",
+      estimatedHours: story.tasks[j].estimatedHours || null,
+      orderIndex: j,
+    });
+  }
+}
