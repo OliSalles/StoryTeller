@@ -74,3 +74,5 @@
 ## Bugs
 - [x] Corrigir erro "verifique as configurações de LLM" ao gerar features
 - [x] Remover todas as verificações de LLM config dos routers
+- [x] Debugar e corrigir erro persistente na geração de features
+- [x] Adicionar logs detalhados para identificar problema

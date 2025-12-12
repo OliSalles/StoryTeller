@@ -164,8 +164,9 @@ Return your response in the following JSON format:
       })
     )
     .mutation(async ({ ctx, input }) => {
-      // Get user's LLM config
-      const llmConfig = await db.getLlmConfigByUserId(ctx.user.id);
+      console.log('[GENERATE] Starting feature generation for user:', ctx.user.id);
+      console.log('[GENERATE] Prompt length:', input.prompt.length);
+      console.log('[GENERATE] Language:', input.language);
 
       // Check if prompt is large (> 2000 characters) and needs to be split
       const CHUNK_SIZE = 2000;
