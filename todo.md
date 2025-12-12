@@ -80,3 +80,6 @@
 
 - [x] Corrigir erro 500 "Cannot read properties of undefined (reading '0')" ao gerar features
 - [x] Adicionar tratamento de erro para respostas vazias da IA
+
+- [x] Corrigir erro de parse JSON quando IA retorna resposta com bloco markdown (```json ... ```)
+- [x] Adicionar função de limpeza de markdown antes do JSON.parse

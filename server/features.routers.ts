@@ -4,6 +4,22 @@ import { invokeLLM } from "./_core/llm";
 import * as db from "./db";
 
 /**
+ * Helper function to clean markdown code blocks from JSON responses
+ */
+function cleanJsonResponse(content: string): string {
+  // Remove markdown code blocks (```json ... ``` or ``` ... ```)
+  let cleaned = content.trim();
+  
+  // Remove opening code block
+  cleaned = cleaned.replace(/^```(?:json)?\s*\n?/i, '');
+  
+  // Remove closing code block
+  cleaned = cleaned.replace(/\n?```\s*$/i, '');
+  
+  return cleaned.trim();
+}
+
+/**
  * Features router for AI generation and Jira integration
  */
 export const featuresRouter = router({
@@ -110,7 +126,8 @@ Return your response in the following JSON format:
       }
 
       const contentStr = typeof content === 'string' ? content : JSON.stringify(content);
-      const generated = JSON.parse(contentStr);
+      const cleanedStr = cleanJsonResponse(contentStr);
+      const generated = JSON.parse(cleanedStr);
 
       // Update feature
       await db.updateFeature(input.featureId, {
@@ -278,7 +295,8 @@ Generate user stories for this part only. Return JSON format:
           const content = response.choices[0]?.message?.content;
           if (content) {
             const contentStr = typeof content === 'string' ? content : JSON.stringify(content);
-            const parsed = JSON.parse(contentStr);
+            const cleanedStr = cleanJsonResponse(contentStr);
+            const parsed = JSON.parse(cleanedStr);
             partialResults.push(parsed);
           }
         }
@@ -318,7 +336,8 @@ Create a comprehensive feature title and description that encompasses all parts.
         }
 
         const consolidationStr = typeof consolidationContent === 'string' ? consolidationContent : JSON.stringify(consolidationContent);
-        const consolidation = JSON.parse(consolidationStr);
+        const cleanedConsolidation = cleanJsonResponse(consolidationStr);
+        const consolidation = JSON.parse(cleanedConsolidation);
 
         // Save consolidated feature
         const featureId = await db.createFeature({
@@ -490,7 +509,8 @@ Return your response in the following JSON format:
       }
 
       const contentStr = typeof content === 'string' ? content : JSON.stringify(content);
-      const generated = JSON.parse(contentStr);
+      const cleanedStr = cleanJsonResponse(contentStr);
+      const generated = JSON.parse(cleanedStr);
 
       // Save to database
       const featureId = await db.createFeature({
