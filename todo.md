@@ -70,3 +70,7 @@
 - [x] Remover rotas e referências de LLM config
 - [x] Usar sempre LLM da Manus por padrão
 - [x] Atualizar navegação removendo Config. LLM
+
+## Bugs
+- [x] Corrigir erro "verifique as configurações de LLM" ao gerar features
+- [x] Remover todas as verificações de LLM config dos routers

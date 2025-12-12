@@ -102,7 +102,7 @@ Return your response in the following JSON format:
 
       const content = response.choices[0]?.message?.content;
       if (!content) {
-        throw new Error("No response from LLM");
+        throw new Error("Falha ao gerar resposta. Tente novamente.");
       }
 
       const contentStr = typeof content === 'string' ? content : JSON.stringify(content);

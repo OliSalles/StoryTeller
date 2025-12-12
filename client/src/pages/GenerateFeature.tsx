@@ -32,7 +32,7 @@ export default function GenerateFeature() {
       toast.success("Feature gerada com sucesso!");
       setLocation(`/features/${result.featureId}`);
     } catch (error) {
-      toast.error("Erro ao gerar feature. Verifique suas configurações de LLM.");
+      toast.error("Erro ao gerar feature. Tente novamente ou entre em contato com o suporte.");
     }
   };
 
