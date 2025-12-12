@@ -1,0 +1,9 @@
+{
+  "query": "SELECT t.id, t.title, t.user_story_id FROM tasks t INNER JOIN user_stories us ON t.user_story_id = us.id WHERE us.feature_id = 30001 LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user V22mdELEt8WxYWD.c9cf6d5eba9c --database HUntQsx8BjuPDjNs8cJdwo --execute SELECT t.id, t.title, t.user_story_id FROM tasks t INNER JOIN user_stories us ON t.user_story_id = us.id WHERE us.feature_id = 30001 LIMIT 10;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 55
+}

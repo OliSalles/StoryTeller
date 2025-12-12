@@ -62,6 +62,7 @@
 - [x] Criar tabela de tasks no banco de dados
 - [x] Atualizar prompt da IA para gerar tasks para cada história
 - [x] Adicionar visualização de tasks na interface de detalhes
+- [x] Adicionar json_schema para forçar IA a retornar tasks no processamento em chunks
 - [ ] Exportar tasks para Jira como subtasks
 - [ ] Exportar tasks para Azure DevOps como tasks vinculadas
 

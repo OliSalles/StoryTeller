@@ -202,7 +202,14 @@ Generate user stories for this part only. Return JSON format:
       "description": "Story description",
       "priority": "low" | "medium" | "high" | "critical",
       "storyPoints": 1 | 2 | 3 | 5 | 8 | 13 | 21,
-      "acceptanceCriteria": ["Criterion 1", "Criterion 2"]
+      "acceptanceCriteria": ["Criterion 1", "Criterion 2"],
+      "tasks": [
+        {
+          "title": "Task title",
+          "description": "Task description",
+          "estimatedHours": 2
+        }
+      ]
     }
   ]
 }`;
@@ -212,7 +219,51 @@ Generate user stories for this part only. Return JSON format:
               { role: "system", content: chunkPrompt },
               { role: "user", content: chunks[i] },
             ],
-
+            response_format: {
+              type: "json_schema",
+              json_schema: {
+                name: "user_stories_chunk",
+                strict: true,
+                schema: {
+                  type: "object",
+                  properties: {
+                    userStories: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          title: { type: "string" },
+                          description: { type: "string" },
+                          priority: { type: "string", enum: ["low", "medium", "high", "critical"] },
+                          storyPoints: { type: "integer", enum: [1, 2, 3, 5, 8, 13, 21] },
+                          acceptanceCriteria: {
+                            type: "array",
+                            items: { type: "string" }
+                          },
+                          tasks: {
+                            type: "array",
+                            items: {
+                              type: "object",
+                              properties: {
+                                title: { type: "string" },
+                                description: { type: "string" },
+                                estimatedHours: { type: "integer" }
+                              },
+                              required: ["title", "description", "estimatedHours"],
+                              additionalProperties: false
+                            }
+                          }
+                        },
+                        required: ["title", "description", "priority", "storyPoints", "acceptanceCriteria", "tasks"],
+                        additionalProperties: false
+                      }
+                    }
+                  },
+                  required: ["userStories"],
+                  additionalProperties: false
+                }
+              }
+            }
           });
 
           const content = response.choices[0]?.message?.content;
@@ -286,6 +337,18 @@ Create a comprehensive feature title and description that encompasses all parts.
               await db.createAcceptanceCriterion({
                 userStoryId: storyId,
                 criterion: story.acceptanceCriteria[j],
+                orderIndex: j,
+              });
+            }
+          }
+
+          if (story.tasks && Array.isArray(story.tasks)) {
+            for (let j = 0; j < story.tasks.length; j++) {
+              await db.createTask({
+                userStoryId: storyId,
+                title: story.tasks[j].title,
+                description: story.tasks[j].description,
+                estimatedHours: story.tasks[j].estimatedHours,
                 orderIndex: j,
               });
             }
