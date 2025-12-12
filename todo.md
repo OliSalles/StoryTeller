@@ -77,3 +77,6 @@
 - [x] Remover todas as verificações de LLM config dos routers
 - [x] Debugar e corrigir erro persistente na geração de features
 - [x] Adicionar logs detalhados para identificar problema
+
+- [x] Corrigir erro 500 "Cannot read properties of undefined (reading '0')" ao gerar features
+- [x] Adicionar tratamento de erro para respostas vazias da IA

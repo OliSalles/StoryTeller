@@ -100,9 +100,13 @@ Return your response in the following JSON format:
 
       });
 
+      if (!response || !response.choices || response.choices.length === 0) {
+        throw new Error("Falha ao gerar resposta da IA. Tente novamente.");
+      }
+      
       const content = response.choices[0]?.message?.content;
       if (!content) {
-        throw new Error("Falha ao gerar resposta. Tente novamente.");
+        throw new Error("Resposta da IA vazia. Tente novamente.");
       }
 
       const contentStr = typeof content === 'string' ? content : JSON.stringify(content);
@@ -266,6 +270,11 @@ Generate user stories for this part only. Return JSON format:
             }
           });
 
+          if (!response || !response.choices || response.choices.length === 0) {
+            console.error(`[Chunk ${i + 1}] Resposta da IA vazia ou inválida`);
+            continue;
+          }
+          
           const content = response.choices[0]?.message?.content;
           if (content) {
             const contentStr = typeof content === 'string' ? content : JSON.stringify(content);
@@ -471,9 +480,13 @@ Return your response in the following JSON format:
         },
       });
 
+      if (!response || !response.choices || response.choices.length === 0) {
+        throw new Error("Falha ao gerar resposta da IA. Tente novamente.");
+      }
+      
       const content = response.choices[0]?.message?.content;
       if (!content || typeof content !== 'string') {
-        throw new Error("Failed to generate feature");
+        throw new Error("Resposta da IA inválida. Tente novamente.");
       }
 
       const contentStr = typeof content === 'string' ? content : JSON.stringify(content);
