@@ -132,6 +132,10 @@ export default function Home() {
             Começar Agora
           </Button>
         </div>
+
+        <footer className="text-center text-sm text-foreground/50 py-6">
+          Desenvolvido por Lucas Salles
+        </footer>
       </div>
     </div>
   );

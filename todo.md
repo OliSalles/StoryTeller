@@ -144,3 +144,9 @@
 - [x] Atualizar subtítulo da homepage com tema de bardo
 - [x] Adicionar animação sutil ao logo na homepage (Framer Motion)
 - [x] Criar versão simplificada do logo (apenas ícone) para loading states
+
+## Atualizar Créditos
+- [x] Encontrar todas as referências a "Desenvolvido por Manus" (não havia nenhuma)
+- [x] Adicionar footer com "Desenvolvido por Lucas Salles" na homepage
+- [x] Remover símbolos/logos da Manus (não havia nenhum)
+- [x] Testar em todas as páginas
