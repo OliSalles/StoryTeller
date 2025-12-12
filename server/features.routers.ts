@@ -901,6 +901,25 @@ Return your response in the following JSON format:
     }),
 
   /**
+   * Delete a feature and all associated data
+   */
+  deleteFeature: protectedProcedure
+    .input(z.object({ featureId: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      // Verify feature belongs to user
+      const feature = await db.getFeatureById(input.featureId);
+      
+      if (!feature || feature.userId !== ctx.user.id) {
+        throw new Error("Feature not found or unauthorized");
+      }
+      
+      // Delete feature (cascade will delete stories and tasks)
+      await db.deleteFeature(input.featureId);
+      
+      return { success: true, message: "Feature deleted successfully" };
+    }),
+
+  /**
    * Cancel an ongoing execution
    */
   cancelExecution: protectedProcedure

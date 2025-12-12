@@ -349,3 +349,11 @@ export async function getActiveExecutionByUserId(userId: number) {
     .limit(1);
   return result.length > 0 ? result[0] : null;
 }
+
+export async function deleteFeature(featureId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  // Delete feature (cascade will automatically delete related stories and tasks)
+  await db.delete(features).where(eq(features.id, featureId));
+}

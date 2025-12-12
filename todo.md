@@ -156,3 +156,9 @@
 - [x] Página de login mostra "Desenvolvido por Manus" no rodapé - NÃO PODE SER ALTERADO (sistema OAuth)
 - [x] Investigar variáveis de ambiente VITE_APP_TITLE - é built-in, não editável via código
 - [x] Solução: Usuário deve alterar manualmente em Settings → General → Website name
+
+## Modificar Histórico de Features
+- [x] Remover opção de edição do histórico (não havia)
+- [x] Adicionar endpoint tRPC para excluir feature
+- [x] Adicionar botão "Excluir" no histórico
+- [x] Testar exclusão de features com vitest

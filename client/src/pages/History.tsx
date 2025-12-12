@@ -3,13 +3,23 @@ import { Badge } from "@/components/ui/badge";
 import { GlassCard } from "@/components/GlassCard";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
-import { Loader2, History as HistoryIcon, Eye, Calendar, FileText } from "lucide-react";
+import { Loader2, History as HistoryIcon, Eye, Calendar, FileText, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 export default function History() {
   const [, setLocation] = useLocation();
+  const utils = trpc.useUtils();
   const { data: features, isLoading } = trpc.features.list.useQuery();
+  
+  const deleteFeature = trpc.features.deleteFeature.useMutation({
+    onSuccess: () => {
+      utils.features.list.invalidate();
+    },
+    onError: (error) => {
+      alert(`Erro ao excluir: ${error.message}`);
+    },
+  });
 
   if (isLoading) {
     return (
@@ -104,18 +114,40 @@ export default function History() {
                   </div>
                 </div>
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2 bg-white/5 border-white/10 hover:bg-white/10"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setLocation(`/features/${feature.id}`);
-                  }}
-                >
-                  <Eye className="w-4 h-4" />
-                  Visualizar
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 bg-white/5 border-white/10 hover:bg-white/10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setLocation(`/features/${feature.id}`);
+                    }}
+                  >
+                    <Eye className="w-4 h-4" />
+                    Visualizar
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20 hover:text-red-300"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm(`Tem certeza que deseja excluir a feature "${feature.title}"? Esta ação não pode ser desfeita.`)) {
+                        deleteFeature.mutate({ featureId: feature.id });
+                      }
+                    }}
+                    disabled={deleteFeature.isPending}
+                  >
+                    {deleteFeature.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
+                    Excluir
+                  </Button>
+                </div>
               </div>
             </GlassCard>
           ))}
