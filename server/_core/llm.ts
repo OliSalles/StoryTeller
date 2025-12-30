@@ -1,4 +1,6 @@
 import { ENV } from "./env";
+import * as db from "../db";
+import OpenAI from "openai";
 
 export type Role = "system" | "user" | "assistant" | "tool" | "function";
 
@@ -209,15 +211,25 @@ const normalizeToolChoice = (
   return toolChoice;
 };
 
-const resolveApiUrl = () =>
-  ENV.forgeApiUrl && ENV.forgeApiUrl.trim().length > 0
-    ? `${ENV.forgeApiUrl.replace(/\/$/, "")}/v1/chat/completions`
-    : "https://forge.manus.im/v1/chat/completions";
+const resolveApiUrl = async (provider?: string) => {
+  // URLs oficiais de cada provider - integração direta
+  const providerUrls: Record<string, string> = {
+    openai: "https://api.openai.com/v1/chat/completions",
+    anthropic: "https://api.anthropic.com/v1/messages",
+    google: "https://generativelanguage.googleapis.com/v1beta/models",
+    azure: "", // Precisa ser configurado
+    ollama: "http://localhost:11434/api/chat",
+  };
 
-const assertApiKey = () => {
-  if (!ENV.forgeApiKey) {
-    throw new Error("OPENAI_API_KEY is not configured");
+  return providerUrls[provider || "openai"] || providerUrls.openai;
+};
+
+const assertApiKey = async (apiKey?: string) => {
+  const key = apiKey || ENV.forgeApiKey;
+  if (!key) {
+    throw new Error("API Key não configurada. Configure a LLM em Config. LLM");
   }
+  return key;
 };
 
 const normalizeResponseFormat = ({
@@ -266,7 +278,18 @@ const normalizeResponseFormat = ({
 };
 
 export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
-  assertApiKey();
+  // Buscar configuração global da LLM do banco
+  const llmConfig = await db.getGlobalLlmConfig();
+  
+  if (!llmConfig) {
+    throw new Error("Configuração da LLM não encontrada. Configure em Config. LLM");
+  }
+
+  const apiKey = await assertApiKey(llmConfig.apiKey || undefined);
+  
+  console.log('[LLM] Using provider:', llmConfig.provider);
+  console.log('[LLM] Using model:', llmConfig.model);
+  console.log('[LLM] API Key starts with:', apiKey.substring(0, 10) + '...');
 
   const {
     messages,
@@ -279,8 +302,63 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     response_format,
   } = params;
 
+  // Se for OpenAI, usar o SDK oficial
+  if (llmConfig.provider === "openai") {
+    const openai = new OpenAI({
+      apiKey: apiKey,
+    });
+
+    console.log('[LLM] Using OpenAI SDK');
+
+    const chatParams: any = {
+      model: llmConfig.model,
+      messages: messages.map(normalizeMessage),
+    };
+
+    if (tools && tools.length > 0) {
+      chatParams.tools = tools;
+    }
+
+    const normalizedToolChoice = normalizeToolChoice(
+      toolChoice || tool_choice,
+      tools
+    );
+    if (normalizedToolChoice) {
+      chatParams.tool_choice = normalizedToolChoice;
+    }
+
+    if (llmConfig.maxTokens) {
+      chatParams.max_tokens = llmConfig.maxTokens;
+    }
+
+    if (llmConfig.temperature) {
+      chatParams.temperature = parseFloat(llmConfig.temperature);
+    }
+
+    const normalizedResponseFormat = normalizeResponseFormat({
+      responseFormat,
+      response_format,
+      outputSchema,
+      output_schema,
+    });
+
+    if (normalizedResponseFormat) {
+      chatParams.response_format = normalizedResponseFormat;
+    }
+
+    console.log('[LLM] Calling OpenAI API...');
+    const response = await openai.chat.completions.create(chatParams);
+    console.log('[LLM] OpenAI response received');
+    
+    return response as InvokeResult;
+  }
+
+  // Para outros providers (Anthropic, Google), usar fetch
+  const apiUrl = await resolveApiUrl(llmConfig.provider);
+  console.log('[LLM] API URL:', apiUrl);
+
   const payload: Record<string, unknown> = {
-    model: "gemini-2.5-flash",
+    model: llmConfig.model,
     messages: messages.map(normalizeMessage),
   };
 
@@ -296,9 +374,12 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     payload.tool_choice = normalizedToolChoice;
   }
 
-  payload.max_tokens = 32768
-  payload.thinking = {
-    "budget_tokens": 128
+  if (llmConfig.maxTokens) {
+    payload.max_tokens = llmConfig.maxTokens;
+  }
+
+  if (llmConfig.temperature) {
+    payload.temperature = parseFloat(llmConfig.temperature);
   }
 
   const normalizedResponseFormat = normalizeResponseFormat({
@@ -312,21 +393,56 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     payload.response_format = normalizedResponseFormat;
   }
 
-  const response = await fetch(resolveApiUrl(), {
+  // Configurar headers baseado no provider
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+  };
+
+  if (llmConfig.provider === "anthropic") {
+    headers["x-api-key"] = apiKey;
+    headers["anthropic-version"] = "2023-06-01";
+  } else if (llmConfig.provider === "google") {
+    headers["x-goog-api-key"] = apiKey;
+  } else {
+    headers["authorization"] = `Bearer ${apiKey}`;
+  }
+
+  // Ajustar payload para Anthropic (formato diferente)
+  let finalPayload = payload;
+  if (llmConfig.provider === "anthropic") {
+    finalPayload = {
+      model: llmConfig.model,
+      max_tokens: llmConfig.maxTokens || 2000,
+      messages: messages.map(normalizeMessage),
+    };
+    if (llmConfig.temperature) {
+      finalPayload.temperature = parseFloat(llmConfig.temperature);
+    }
+  }
+
+  const response = await fetch(apiUrl, {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${ENV.forgeApiKey}`,
-    },
-    body: JSON.stringify(payload),
+    headers,
+    body: JSON.stringify(finalPayload),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
+    console.error('[LLM] API Error Response:', errorText.substring(0, 500));
     throw new Error(
-      `LLM invoke failed: ${response.status} ${response.statusText} – ${errorText}`
+      `LLM invoke failed: ${response.status} ${response.statusText} – ${errorText.substring(0, 200)}`
     );
   }
 
-  return (await response.json()) as InvokeResult;
+  const responseText = await response.text();
+  console.log('[LLM] Response received, length:', responseText.length);
+  console.log('[LLM] Response preview:', responseText.substring(0, 200));
+  
+  try {
+    return JSON.parse(responseText) as InvokeResult;
+  } catch (error) {
+    console.error('[LLM] Failed to parse JSON response');
+    console.error('[LLM] Response was:', responseText.substring(0, 1000));
+    throw new Error(`Failed to parse LLM response as JSON: ${responseText.substring(0, 100)}`);
+  }
 }

@@ -13,11 +13,15 @@ export const users = pgTable("users", {
    * Use this for relations between tables.
    */
   id: serial("id").primaryKey(),
-  /** Manus OAuth identifier (openId) returned from the OAuth callback. Unique per user. */
-  openId: varchar("openId", { length: 64 }).notNull().unique(),
-  name: text("name"),
-  email: varchar("email", { length: 320 }),
-  loginMethod: varchar("loginMethod", { length: 64 }),
+  /** Email do usuário - único e obrigatório */
+  email: varchar("email", { length: 320 }).notNull().unique(),
+  /** Hash da senha do usuário */
+  password: varchar("password", { length: 255 }).notNull(),
+  /** Nome completo do usuário */
+  name: text("name").notNull(),
+  /** Manus OAuth identifier (openId) - opcional para compatibilidade */
+  openId: varchar("openId", { length: 64 }).unique(),
+  loginMethod: varchar("loginMethod", { length: 64 }).default("local"),
   role: roleEnum("role").default("user").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),
@@ -28,11 +32,11 @@ export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
 /**
- * LLM configuration table - stores user's LLM settings
+ * LLM configuration table - stores global LLM settings (admin only)
+ * Single row configuration shared by all users
  */
 export const llmConfigs = pgTable("llm_configs", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull(),
   provider: varchar("provider", { length: 64 }).notNull().default("openai"),
   model: varchar("model", { length: 128 }).notNull().default("gpt-4"),
   apiKey: text("api_key"),

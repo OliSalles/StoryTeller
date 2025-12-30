@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { GlassCard } from "@/components/GlassCard";
 import {
   Select,
@@ -19,6 +20,8 @@ export default function GenerateFeature() {
   const [, setLocation] = useLocation();
   const [prompt, setPrompt] = useState("");
   const [language, setLanguage] = useState<"pt" | "en">("pt");
+  const [technology, setTechnology] = useState("none");
+  const [includeTasks, setIncludeTasks] = useState(true);
   const generateMutation = trpc.features.generate.useMutation();
   const cancelMutation = trpc.features.cancelExecution.useMutation();
   const { data: activeExecution, refetch: refetchActiveExecution } = trpc.features.getActiveExecution.useQuery(
@@ -33,7 +36,12 @@ export default function GenerateFeature() {
     }
 
     try {
-      const result = await generateMutation.mutateAsync({ prompt, language });
+      const result = await generateMutation.mutateAsync({ 
+        prompt, 
+        language,
+        technology: technology && technology !== "none" ? technology : undefined,
+        includeTasks
+      });
       toast.success("Feature gerada com sucesso!");
       await refetchActiveExecution(); // Refresh active execution status
       setLocation(`/features/${result.featureId}`);
@@ -87,6 +95,56 @@ export default function GenerateFeature() {
             <p className="text-sm text-muted-foreground">
               Escolha o idioma para gerar a feature, histórias de usuário e critérios de aceite
             </p>
+          </div>
+
+          <div className="space-y-3">
+            <Label htmlFor="technology" className="text-base font-semibold">
+              Tecnologia / Plataforma <span className="text-sm font-normal text-muted-foreground">(Opcional)</span>
+            </Label>
+            <Select value={technology} onValueChange={setTechnology} disabled={generateMutation.isPending}>
+              <SelectTrigger className="bg-white/5 border-white/10 focus:border-primary/50">
+                <SelectValue placeholder="Selecione uma tecnologia ou deixe em branco" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Nenhuma (Genérico)</SelectItem>
+                <SelectItem value="Salesforce">Salesforce (Apex, LWC, Visualforce)</SelectItem>
+                <SelectItem value="React">React (Frontend)</SelectItem>
+                <SelectItem value="Angular">Angular (Frontend)</SelectItem>
+                <SelectItem value="Vue.js">Vue.js (Frontend)</SelectItem>
+                <SelectItem value="Node.js">Node.js (Backend)</SelectItem>
+                <SelectItem value=".NET">.NET / C# (Backend)</SelectItem>
+                <SelectItem value="Java Spring">Java Spring (Backend)</SelectItem>
+                <SelectItem value="Python Django">Python Django (Backend)</SelectItem>
+                <SelectItem value="Python Flask">Python Flask (Backend)</SelectItem>
+                <SelectItem value="React Native">React Native (Mobile)</SelectItem>
+                <SelectItem value="Flutter">Flutter (Mobile)</SelectItem>
+                <SelectItem value="iOS Native">iOS Native (Swift)</SelectItem>
+                <SelectItem value="Android Native">Android Native (Kotlin)</SelectItem>
+                <SelectItem value="WordPress">WordPress</SelectItem>
+                <SelectItem value="SharePoint">SharePoint</SelectItem>
+                <SelectItem value="Power Platform">Power Platform (Power Apps, Power Automate)</SelectItem>
+                <SelectItem value="ServiceNow">ServiceNow</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-sm text-muted-foreground">
+              Especifique a tecnologia para receber sugestões técnicas específicas e melhores práticas da plataforma
+            </p>
+          </div>
+
+          <div className="flex items-center space-x-3 p-4 rounded-lg bg-white/5 border border-white/10">
+            <Checkbox 
+              id="includeTasks" 
+              checked={includeTasks}
+              onCheckedChange={(checked) => setIncludeTasks(checked as boolean)}
+              disabled={generateMutation.isPending}
+              className="border-white/20"
+            />
+            <Label 
+              htmlFor="includeTasks" 
+              className="text-sm font-medium cursor-pointer flex-1"
+            >
+              Incluir tasks técnicas detalhadas para cada história de usuário
+            </Label>
           </div>
 
           <div className="space-y-3">

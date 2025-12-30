@@ -19,9 +19,8 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Sparkles, History, Settings, FileText } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, Sparkles, History, Settings, FileText, Brain, GitBranch, Cloud } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -31,8 +30,9 @@ const menuItems = [
   { icon: Sparkles, label: "Gerar Feature", path: "/generate" },
   { icon: History, label: "Histórico", path: "/history" },
   { icon: FileText, label: "Execuções", path: "/executions" },
-  { icon: LayoutDashboard, label: "Config. Jira", path: "/config/jira" },
-  { icon: LayoutDashboard, label: "Config. Azure DevOps", path: "/config/azure-devops" },
+  { icon: Brain, label: "Config. LLM", path: "/config/llm" },
+  { icon: GitBranch, label: "Config. Jira", path: "/config/jira" },
+  { icon: Cloud, label: "Config. Azure DevOps", path: "/config/azure-devops" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
@@ -60,27 +60,10 @@ export default function DashboardLayout({
   }
 
   if (!user) {
+    window.location.href = "/login";
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="flex flex-col items-center gap-8 p-8 max-w-md w-full">
-          <div className="flex flex-col items-center gap-6">
-            <h1 className="text-2xl font-semibold tracking-tight text-center">
-              Sign in to continue
-            </h1>
-            <p className="text-sm text-muted-foreground text-center max-w-sm">
-              Access to this dashboard requires authentication. Continue to launch the login flow.
-            </p>
-          </div>
-          <Button
-            onClick={() => {
-              window.location.href = getLoginUrl();
-            }}
-            size="lg"
-            className="w-full shadow-lg hover:shadow-xl transition-all"
-          >
-            Sign in
-          </Button>
-        </div>
+        <div className="text-muted-foreground">Redirecionando...</div>
       </div>
     );
   }
@@ -184,24 +167,32 @@ function DashboardLayoutContent({
 
           <SidebarContent className="gap-0">
             <SidebarMenu className="px-2 py-1">
-              {menuItems.map(item => {
-                const isActive = location === item.path;
-                return (
-                  <SidebarMenuItem key={item.path}>
-                    <SidebarMenuButton
-                      isActive={isActive}
-                      onClick={() => setLocation(item.path)}
-                      tooltip={item.label}
-                      className={`h-10 transition-all font-normal`}
-                    >
-                      <item.icon
-                        className={`h-4 w-4 ${isActive ? "text-primary" : ""}`}
-                      />
-                      <span>{item.label}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
+              {menuItems
+                .filter(item => {
+                  // Mostrar Config. LLM apenas para admin
+                  if (item.path === "/config/llm") {
+                    return user?.role === "admin";
+                  }
+                  return true;
+                })
+                .map(item => {
+                  const isActive = location === item.path;
+                  return (
+                    <SidebarMenuItem key={item.path}>
+                      <SidebarMenuButton
+                        isActive={isActive}
+                        onClick={() => setLocation(item.path)}
+                        tooltip={item.label}
+                        className={`h-10 transition-all font-normal`}
+                      >
+                        <item.icon
+                          className={`h-4 w-4 ${isActive ? "text-primary" : ""}`}
+                        />
+                        <span>{item.label}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
             </SidebarMenu>
           </SidebarContent>
 

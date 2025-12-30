@@ -2,7 +2,6 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/GlassCard";
 import { Loader2, Sparkles, GitBranch, Zap, CheckCircle2 } from "lucide-react";
-import { getLoginUrl } from "@/const";
 import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
@@ -13,7 +12,7 @@ export default function Home() {
 
   useEffect(() => {
     if (isAuthenticated && user) {
-      setLocation("/dashboard");
+      setLocation("/generate");
     }
   }, [isAuthenticated, user, setLocation]);
 
@@ -126,7 +125,7 @@ export default function Home() {
           <Button
             size="lg"
             className="text-lg px-8 py-6 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
-            onClick={() => window.location.href = getLoginUrl()}
+            onClick={() => setLocation("/login")}
           >
             <CheckCircle2 className="w-5 h-5 mr-2" />
             Começar Agora

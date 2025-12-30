@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { protectedProcedure, router } from "./_core/trpc";
+import { protectedProcedure, adminProcedure, router } from "./_core/trpc";
 import * as db from "./db";
 
 /**
@@ -32,11 +32,13 @@ export const configRouter = router({
       }),
   }),
   llm: router({
-    get: protectedProcedure.query(async ({ ctx }) => {
-      return db.getLlmConfigByUserId(ctx.user.id);
+    // Qualquer usuário pode visualizar a configuração global
+    get: protectedProcedure.query(async () => {
+      return db.getGlobalLlmConfig();
     }),
     
-    save: protectedProcedure
+    // Apenas admin pode salvar/editar
+    save: adminProcedure
       .input(
         z.object({
           provider: z.string().default("openai"),
@@ -46,11 +48,8 @@ export const configRouter = router({
           maxTokens: z.number().default(2000),
         })
       )
-      .mutation(async ({ ctx, input }) => {
-        return db.upsertLlmConfig({
-          userId: ctx.user.id,
-          ...input,
-        });
+      .mutation(async ({ input }) => {
+        return db.upsertGlobalLlmConfig(input);
       }),
   }),
 

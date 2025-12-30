@@ -202,6 +202,8 @@ Return your response in the following JSON format:
       z.object({
         prompt: z.string().min(10),
         language: z.enum(["pt", "en"]).default("pt"),
+        technology: z.string().optional(),
+        includeTasks: z.boolean().default(true),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -209,6 +211,8 @@ Return your response in the following JSON format:
       console.log('[GENERATE] Starting feature generation for user:', ctx.user.id);
       console.log('[GENERATE] Prompt length:', input.prompt.length);
       console.log('[GENERATE] Language:', input.language);
+      console.log('[GENERATE] Technology:', input.technology || 'Not specified');
+      console.log('[GENERATE] Include Tasks:', input.includeTasks);
 
       // Create execution log
       const executionLogId = await db.createExecutionLog({
@@ -225,6 +229,7 @@ Return your response in the following JSON format:
       console.log('[GENERATE] Registered AbortController for execution:', executionLogId);
 
       try {
+        console.log('[GENERATE] Starting LLM invocation...');
 
       // Check if prompt is large (> 2000 characters) and needs to be split
       const CHUNK_SIZE = 2000;
@@ -537,9 +542,49 @@ Create a comprehensive feature title and description that encompasses all parts.
         ? "Responda em português brasileiro. Use linguagem clara e profissional."
         : "Respond in English. Use clear and professional language.";
 
+      const technologyInstructions = input.technology 
+        ? (input.language === "pt" 
+          ? `\n\nIMPORTANTE: Esta feature será implementada usando ${input.technology}. Você deve:
+- Incluir detalhes técnicos específicos de ${input.technology} nas descrições${input.includeTasks ? ' e tasks' : ''}
+- Mencionar componentes, APIs, frameworks e melhores práticas específicos de ${input.technology}
+- Considerar as limitações e capacidades da plataforma ${input.technology}
+- Usar terminologia técnica apropriada de ${input.technology}
+${input.technology === 'Salesforce' ? `
+- Para Salesforce: SEMPRE PRIORIZE RECURSOS PADRÃO (CLICKS NOT CODE):
+  * Primeiro sugira configurações declarativas: Flows, Process Builder, Validation Rules, Formula Fields
+  * Objetos e campos customizados (custom objects/fields) com Page Layouts e Record Types
+  * Permission Sets, Profiles, Sharing Rules para controle de acesso
+  * Lightning App Builder para customização de páginas
+  * Reports e Dashboards para visualização de dados
+  * Email Alerts, Workflow Rules para automação
+  * SOMENTE quando recursos padrão não são suficientes: mencione Apex (classes, triggers, batch), LWC, Visualforce
+  * Sempre prefira configuração ao invés de código customizado` : ''}
+${input.technology !== 'Salesforce' ? `- Para React/Angular/Vue: mencione componentes, hooks, state management, rotas, etc.
+- Para Node.js/Backend: mencione APIs REST, autenticação, banco de dados, middlewares, etc.
+- Para Mobile: mencione telas, navegação, permissões, integração com APIs, etc.` : ''}`
+          : `\n\nIMPORTANT: This feature will be implemented using ${input.technology}. You must:
+- Include specific technical details about ${input.technology} in descriptions${input.includeTasks ? ' and tasks' : ''}
+- Mention components, APIs, frameworks and best practices specific to ${input.technology}
+- Consider the limitations and capabilities of the ${input.technology} platform
+- Use appropriate technical terminology from ${input.technology}
+${input.technology === 'Salesforce' ? `
+- For Salesforce: ALWAYS PRIORITIZE STANDARD FEATURES (CLICKS NOT CODE):
+  * First suggest declarative configurations: Flows, Process Builder, Validation Rules, Formula Fields
+  * Custom objects/fields with Page Layouts and Record Types
+  * Permission Sets, Profiles, Sharing Rules for access control
+  * Lightning App Builder for page customization
+  * Reports and Dashboards for data visualization
+  * Email Alerts, Workflow Rules for automation
+  * ONLY when standard features are not enough: mention Apex (classes, triggers, batch), LWC, Visualforce
+  * Always prefer configuration over custom code` : ''}
+${input.technology !== 'Salesforce' ? `- For React/Angular/Vue: mention components, hooks, state management, routing, etc.
+- For Node.js/Backend: mention REST APIs, authentication, database, middlewares, etc.
+- For Mobile: mention screens, navigation, permissions, API integration, etc.` : ''}`)
+        : "";
+
       const systemPrompt = `You are an expert product manager and technical architect. Your task is to analyze user requirements and generate a comprehensive feature specification.
 
-${languageInstructions}
+${languageInstructions}${technologyInstructions}
 
 For the given requirement, you must:
 1. Create a clear feature title and description
@@ -549,7 +594,7 @@ For the given requirement, you must:
    - Detailed description
    - Priority (low, medium, high, or critical)
    - Estimated story points (1, 2, 3, 5, 8, 13, or 21)
-   - Acceptance criteria (specific, testable conditions)
+   - Acceptance criteria (specific, testable conditions)${input.includeTasks ? '\n   - Technical tasks with descriptions and estimated hours' : ''}
 
 Return your response in the following JSON format:
 {
@@ -566,14 +611,14 @@ Return your response in the following JSON format:
       "acceptanceCriteria": [
         "Criterion 1",
         "Criterion 2"
-      ],
+      ]${input.includeTasks ? `,
       "tasks": [
         {
           "title": "Task title",
           "description": "Technical task description",
           "estimatedHours": 2
         }
-      ]
+      ]` : ''}
     }
   ]
 }`;
@@ -617,21 +662,23 @@ Return your response in the following JSON format:
                         type: "array",
                         items: { type: "string" },
                       },
-                      tasks: {
-                        type: "array",
-                        items: {
-                          type: "object",
-                          properties: {
-                            title: { type: "string" },
-                            description: { type: "string" },
-                            estimatedHours: { type: "number" },
+                      ...(input.includeTasks ? {
+                        tasks: {
+                          type: "array",
+                          items: {
+                            type: "object",
+                            properties: {
+                              title: { type: "string" },
+                              description: { type: "string" },
+                              estimatedHours: { type: "number" },
+                            },
+                            required: ["title", "description", "estimatedHours"],
+                            additionalProperties: false,
                           },
-                          required: ["title", "description", "estimatedHours"],
-                          additionalProperties: false,
                         },
-                      },
+                      } : {}),
                     },
-                    required: ["title", "description", "priority", "storyPoints", "acceptanceCriteria", "tasks"],
+                    required: ["title", "description", "priority", "storyPoints", "acceptanceCriteria", ...(input.includeTasks ? ["tasks"] : [])],
                     additionalProperties: false,
                   },
                 },
@@ -687,15 +734,17 @@ Return your response in the following JSON format:
           });
         }
 
-        // Save tasks
-        for (let j = 0; j < story.tasks.length; j++) {
-          await db.createTask({
-            userStoryId: storyId,
-            title: story.tasks[j].title,
-            description: story.tasks[j].description,
-            estimatedHours: story.tasks[j].estimatedHours,
-            orderIndex: j,
-          });
+        // Save tasks (if includeTasks was true)
+        if (story.tasks && story.tasks.length > 0) {
+          for (let j = 0; j < story.tasks.length; j++) {
+            await db.createTask({
+              userStoryId: storyId,
+              title: story.tasks[j].title,
+              description: story.tasks[j].description,
+              estimatedHours: story.tasks[j].estimatedHours,
+              orderIndex: j,
+            });
+          }
         }
       }
 
@@ -710,6 +759,8 @@ Return your response in the following JSON format:
 
       return { featureId, generated };
       } catch (error) {
+        console.error('[GENERATE] Error occurred:', error);
+        console.error('[GENERATE] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
         // Update execution log with error
         await db.updateExecutionLog(executionLogId, {
           status: "error",

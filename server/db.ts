@@ -43,9 +43,12 @@ export async function getDb() {
   return _db;
 }
 
-export async function upsertUser(user: InsertUser): Promise<void> {
-  if (!user.openId) {
-    throw new Error("User openId is required for upsert");
+export async function upsertUser(user: Partial<InsertUser> & {email: string}): Promise<void>;
+export async function upsertUser(user: Partial<InsertUser> & {openId: string}): Promise<void>;
+export async function upsertUser(user: Partial<InsertUser>): Promise<void> {
+  // Validar que pelo menos email ou openId está presente
+  if (!user.email && !user.openId) {
+    throw new Error("User email or openId is required for upsert");
   }
 
   const db = await getDb();
@@ -55,34 +58,55 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   }
 
   try {
-    const values: InsertUser = {
-      openId: user.openId,
-    };
+    // Se for atualização apenas (sem criar novo), buscar usuário existente
+    if (!user.name && !user.password && user.email) {
+      const existingUser = await getUserByEmail(user.email);
+      if (existingUser) {
+        // Apenas atualizar campos fornecidos
+        const updateData: any = {};
+        if (user.lastSignedIn !== undefined) updateData.lastSignedIn = user.lastSignedIn;
+        if (user.role !== undefined) updateData.role = user.role;
+        if (user.loginMethod !== undefined) updateData.loginMethod = user.loginMethod;
+        
+        if (Object.keys(updateData).length > 0) {
+          await db.update(users)
+            .set(updateData)
+            .where(eq(users.email, user.email));
+        }
+        return;
+      }
+    }
+
+    // Criar ou atualizar com todos os campos
+    const values: any = {};
     const updateSet: Record<string, unknown> = {};
 
-    const textFields = ["name", "email", "loginMethod"] as const;
-    type TextField = (typeof textFields)[number];
-
-    const assignNullable = (field: TextField) => {
-      const value = user[field];
-      if (value === undefined) return;
-      const normalized = value ?? null;
-      values[field] = normalized;
-      updateSet[field] = normalized;
-    };
-
-    textFields.forEach(assignNullable);
-
-    if (user.lastSignedIn !== undefined) {
-      values.lastSignedIn = user.lastSignedIn;
-      updateSet.lastSignedIn = user.lastSignedIn;
+    if (user.email) {
+      values.email = user.email;
+    }
+    if (user.openId) {
+      values.openId = user.openId;
+      updateSet.openId = user.openId;
+    }
+    if (user.name) {
+      values.name = user.name;
+      updateSet.name = user.name;
+    }
+    if (user.password) {
+      values.password = user.password;
+      updateSet.password = user.password;
+    }
+    if (user.loginMethod !== undefined) {
+      values.loginMethod = user.loginMethod;
+      updateSet.loginMethod = user.loginMethod;
     }
     if (user.role !== undefined) {
       values.role = user.role;
       updateSet.role = user.role;
-    } else if (user.openId === ENV.ownerOpenId) {
-      values.role = 'admin';
-      updateSet.role = 'admin';
+    }
+    if (user.lastSignedIn !== undefined) {
+      values.lastSignedIn = user.lastSignedIn;
+      updateSet.lastSignedIn = user.lastSignedIn;
     }
 
     if (!values.lastSignedIn) {
@@ -93,8 +117,9 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       updateSet.lastSignedIn = new Date();
     }
 
+    // Usar email como target do conflict (chave única principal)
     await db.insert(users).values(values).onConflictDoUpdate({
-      target: users.openId,
+      target: users.email,
       set: updateSet,
     });
   } catch (error) {
@@ -115,28 +140,67 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// LLM Config queries
-export async function getLlmConfigByUserId(userId: number) {
+export async function getUserByEmail(email: string) {
   const db = await getDb();
-  if (!db) return undefined;
-  const result = await db.select().from(llmConfigs).where(eq(llmConfigs.userId, userId)).limit(1);
+  if (!db) {
+    console.warn("[Database] Cannot get user: database not available");
+    return undefined;
+  }
+
+  const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+
   return result.length > 0 ? result[0] : undefined;
 }
 
-export async function upsertLlmConfig(config: InsertLlmConfig) {
+export async function getUserById(id: number) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get user: database not available");
+    return undefined;
+  }
+
+  const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
+
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function createUser(user: { email: string; password: string; name: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(users).values({
+    email: user.email,
+    password: user.password,
+    name: user.name,
+    loginMethod: "local",
+    lastSignedIn: new Date(),
+  }).returning({ id: users.id });
+
+  return result[0]?.id;
+}
+
+// LLM Config queries - Global configuration (admin only)
+export async function getGlobalLlmConfig() {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(llmConfigs).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function upsertGlobalLlmConfig(config: Omit<InsertLlmConfig, 'userId'>) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   
-  const existing = await getLlmConfigByUserId(config.userId);
+  const existing = await getGlobalLlmConfig();
   
   if (existing) {
     await db.update(llmConfigs)
       .set({ ...config, updatedAt: new Date() })
-      .where(eq(llmConfigs.userId, config.userId));
-    return getLlmConfigByUserId(config.userId);
+      .where(eq(llmConfigs.id, existing.id));
+    return getGlobalLlmConfig();
   } else {
     await db.insert(llmConfigs).values(config);
-    return getLlmConfigByUserId(config.userId);
+    return getGlobalLlmConfig();
   }
 }
 
@@ -206,7 +270,37 @@ export async function createUserStory(story: InsertUserStory) {
 export async function getUserStoriesByFeatureId(featureId: number) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(userStories).where(eq(userStories.featureId, featureId)).orderBy(userStories.orderIndex);
+  
+  // Get all user stories for this feature
+  const stories = await db
+    .select()
+    .from(userStories)
+    .where(eq(userStories.featureId, featureId))
+    .orderBy(userStories.orderIndex);
+  
+  // For each story, get its acceptance criteria and tasks
+  const storiesWithDetails = await Promise.all(
+    stories.map(async (story) => {
+      const criteria = await db
+        .select()
+        .from(acceptanceCriteria)
+        .where(eq(acceptanceCriteria.userStoryId, story.id));
+      
+      const storyTasks = await db
+        .select()
+        .from(tasks)
+        .where(eq(tasks.userStoryId, story.id))
+        .orderBy(tasks.orderIndex);
+      
+      return {
+        ...story,
+        acceptanceCriteria: criteria,
+        tasks: storyTasks,
+      };
+    })
+  );
+  
+  return storiesWithDetails;
 }
 
 export async function updateUserStory(id: number, data: Partial<InsertUserStory>) {
