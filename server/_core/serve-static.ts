@@ -3,10 +3,9 @@ import fs from "fs";
 import path from "path";
 
 export function serveStatic(app: Express) {
-  const distPath =
-    process.env.NODE_ENV === "development"
-      ? path.resolve(import.meta.dirname, "../..", "dist", "public")
-      : path.resolve(import.meta.dirname, "public");
+  // Em produção com tsx, o arquivo está em /workspace/server/_core/serve-static.ts
+  // E o dist/public está em /workspace/dist/public
+  const distPath = path.resolve(import.meta.dirname, "../..", "dist", "public");
   
   if (!fs.existsSync(distPath)) {
     console.error(
