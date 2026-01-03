@@ -8,6 +8,7 @@
     "build": "vite build",
     "build:frontend": "vite build",
     "start": "NODE_ENV=production tsx server/_core/index.ts",
+    "postinstall": "node scripts/clean-dist.js",
     "check": "tsc --noEmit",
     "format": "prettier --write .",
     "test": "vitest run",
