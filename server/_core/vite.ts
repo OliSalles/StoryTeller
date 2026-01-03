@@ -4,9 +4,11 @@ import { type Server } from "http";
 import { nanoid } from "nanoid";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import viteConfig from "../../vite.config";
 
 export async function setupVite(app: Express, server: Server) {
+  const root = path.resolve(import.meta.dirname, "../..", "client");
+  const publicDir = path.resolve(root, "public");
+  
   const serverOptions = {
     middlewareMode: true,
     hmr: { server },
@@ -14,10 +16,18 @@ export async function setupVite(app: Express, server: Server) {
   };
 
   const vite = await createViteServer({
-    ...viteConfig,
-    configFile: false,
+    root,
+    publicDir,
+    configFile: path.resolve(import.meta.dirname, "../..", "vite.config.ts"),
     server: serverOptions,
     appType: "custom",
+    resolve: {
+      alias: {
+        "@": path.resolve(root, "src"),
+        "@shared": path.resolve(import.meta.dirname, "../..", "shared"),
+        "@assets": path.resolve(import.meta.dirname, "../..", "attached_assets"),
+      },
+    },
   });
 
   app.use(vite.middlewares);
