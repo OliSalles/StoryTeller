@@ -201,3 +201,6 @@ npm run deploy:static:win
 - **`ENV_MANAGEMENT.md`** - Sistema de gerenciamento de ambientes
 - **`DEPLOYMENT.md`** - Guia completo de deploy (VPS)
 
+
+
+

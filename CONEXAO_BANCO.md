@@ -179,3 +179,6 @@ docker exec bardo_postgres psql -U postgres -d bardo -c "SELECT version();"
 
 
 
+
+
+

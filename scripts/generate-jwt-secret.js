@@ -33,3 +33,6 @@ log(`\nJWT_SECRET=${secret}`, 'green');
 log('\n💡 Esta string tem 64 caracteres e é criptograficamente segura.', 'cyan');
 log('   Nunca compartilhe este valor publicamente!\n', 'yellow');
 
+
+
+

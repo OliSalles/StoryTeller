@@ -13,6 +13,8 @@
     "test": "vitest run",
     "db:push": "drizzle-kit push",
     "db:migrate": "npm run db:push",
+    "env:setup": "node scripts/setup-env-config.js",
+    "env:setup:win": "powershell -ExecutionPolicy Bypass -File scripts/setup-env-config.ps1",
     "env:local": "node scripts/setup-env.js local",
     "env:production": "node scripts/setup-env.js production",
     "env:static": "node scripts/setup-env.js static",

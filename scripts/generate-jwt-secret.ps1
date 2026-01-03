@@ -26,3 +26,6 @@ Write-ColorOutput Green "JWT_SECRET=$secret`n"
 Write-ColorOutput Cyan "Esta string tem 64 caracteres e e criptograficamente segura."
 Write-ColorOutput Yellow "Nunca compartilhe este valor publicamente!`n"
 
+
+
+

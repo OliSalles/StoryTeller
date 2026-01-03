@@ -1,0 +1,33 @@
+# 🔧 Configuração de DESENVOLVIMENTO
+# Copie este conteúdo para um arquivo .env na raiz do projeto
+# Ou renomeie este arquivo para .env
+
+# Ambiente
+NODE_ENV=development
+
+# Banco de Dados Local (Docker)
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/bardo
+
+# JWT Secret (pode ser simples em dev)
+JWT_SECRET=dev-secret-key-change-in-production
+
+# Porta do servidor
+PORT=3000
+
+# URLs
+CLIENT_URL=http://localhost:3000
+SERVER_URL=http://localhost:3000
+
+# OpenAI (usar chave de teste ou com limite baixo)
+OPENAI_API_KEY=your-dev-openai-key-here
+
+# AWS S3 (opcional em dev, pode usar storage local)
+# AWS_ACCESS_KEY_ID=
+# AWS_SECRET_ACCESS_KEY=
+# AWS_REGION=
+# AWS_BUCKET_NAME=
+
+# Debug/Logs
+DEBUG=true
+LOG_LEVEL=debug
+

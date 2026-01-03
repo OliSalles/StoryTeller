@@ -265,3 +265,6 @@ Se você tiver problemas:
 3. Verifique os backups em `.env.backup.*`
 4. Leia as mensagens de erro dos scripts
 
+
+
+

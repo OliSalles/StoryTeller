@@ -1,0 +1,32 @@
+# 🚀 Configuração de PRODUÇÃO
+# Configure estas variáveis no EasyPanel em: Settings > Environment
+
+# Ambiente
+NODE_ENV=production
+
+# Banco de Dados (PostgreSQL da sua VPS)
+DATABASE_URL=postgresql://usuario:senha@host:5432/bardo_prod
+
+# JWT Secret (OBRIGATÓRIO - gere com: npm run generate:jwt)
+JWT_SECRET=GERE_UM_SECRET_FORTE_AQUI
+
+# Porta do servidor (EasyPanel usa porta interna, geralmente 3000)
+PORT=3000
+
+# URLs (substitua pelo seu domínio)
+CLIENT_URL=https://seu-dominio.com
+SERVER_URL=https://seu-dominio.com
+
+# OpenAI (chave de produção)
+OPENAI_API_KEY=sk-proj-your-production-key-here
+
+# AWS S3 (se usar upload de arquivos)
+# AWS_ACCESS_KEY_ID=your-access-key
+# AWS_SECRET_ACCESS_KEY=your-secret-key
+# AWS_REGION=us-east-1
+# AWS_BUCKET_NAME=your-bucket-name
+
+# Debug/Logs (desativado em prod)
+DEBUG=false
+LOG_LEVEL=error
+

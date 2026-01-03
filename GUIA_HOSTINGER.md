@@ -492,3 +492,6 @@ pm2 restart bardoai
 
 **Qual é o seu plano da Hostinger?** Me diga para eu te ajudar com os passos específicos! 😊
 
+
+
+
