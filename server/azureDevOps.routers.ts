@@ -2,6 +2,7 @@ import { z } from "zod";
 import { protectedProcedure, router } from "./_core/trpc";
 import * as db from "./db";
 import { TRPCError } from "@trpc/server";
+import { getUserSubscriptionInfo } from "./_core/subscription-guard";
 
 /**
  * Azure DevOps router for exporting features
@@ -14,6 +15,15 @@ export const azureDevOpsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      // ✅ Check if user has permission to export to Azure DevOps
+      const subscriptionInfo = await getUserSubscriptionInfo(ctx.user.id);
+      if (!subscriptionInfo.canExportAzure) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "A exportação para Azure DevOps está disponível apenas nos planos Pro e Business. Faça upgrade para continuar!",
+        });
+      }
+
       // Get Azure DevOps config
       const azureConfig = await db.getAzureDevOpsConfigByUserId(ctx.user.id);
       if (!azureConfig) {

@@ -5,7 +5,7 @@
 NODE_ENV=production
 
 # Banco de Dados (PostgreSQL da sua VPS)
-DATABASE_URL=postgresql://usuario:senha@host:5432/bardo_prod
+DATABASE_URL=postgresql://usuario:senha@host:5432/stroryTeller_prod
 
 # JWT Secret (OBRIGATÓRIO - gere com: npm run generate:jwt)
 JWT_SECRET=GERE_UM_SECRET_FORTE_AQUI
@@ -20,6 +20,13 @@ SERVER_URL=https://seu-dominio.com
 # OpenAI (chave de produção)
 OPENAI_API_KEY=sk-proj-your-production-key-here
 
+# Stripe (Modo de Produção - OBRIGATÓRIO)
+STRIPE_SECRET_KEY=sk_live_your_live_stripe_secret_key_here
+STRIPE_WEBHOOK_SECRET=whsec_your_live_webhook_secret_here
+
+# URL da aplicação (para redirects do Stripe)
+APP_URL=https://seu-dominio.com
+
 # AWS S3 (se usar upload de arquivos)
 # AWS_ACCESS_KEY_ID=your-access-key
 # AWS_SECRET_ACCESS_KEY=your-secret-key
@@ -29,4 +36,7 @@ OPENAI_API_KEY=sk-proj-your-production-key-here
 # Debug/Logs (desativado em prod)
 DEBUG=false
 LOG_LEVEL=error
+
+
+
 

@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { UpgradeModal } from "@/components/UpgradeModal";
 
 const priorityColors = {
   low: "bg-blue-500/20 text-blue-300 border-blue-500/30",
@@ -37,31 +38,59 @@ export default function FeatureDetail() {
   const [editingStory, setEditingStory] = useState<any>(null);
   const [showRefineDialog, setShowRefineDialog] = useState(false);
   const [refinementPrompt, setRefinementPrompt] = useState("");
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   
   const updateStoryMutation = trpc.features.updateStory.useMutation();
   const refineMutation = trpc.features.refine.useMutation();
+  
+  // ✅ Get subscription status
+  const { data: status } = trpc.subscriptions.getStatus.useQuery();
 
   const handleExportJira = async () => {
+    // ✅ Check if user has permission
+    if (!status?.canExportJira) {
+      setShowUpgradeModal(true);
+      toast.error("A exportação para Jira está disponível apenas nos planos Pro e Business.");
+      return;
+    }
+
     try {
       const result = await exportJiraMutation.mutateAsync({ featureId });
       toast.success(`Feature exportada para Jira! Epic: ${result.epicKey}`);
       utils.features.getById.invalidate({ id: featureId });
       utils.features.list.invalidate();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Erro ao exportar para Jira";
+    } catch (error: any) {
+      const message = error?.message || "Erro ao exportar para Jira";
       toast.error(message);
+      
+      // Show upgrade modal if error is subscription-related
+      if (message.includes("plano") || message.includes("Upgrade")) {
+        setShowUpgradeModal(true);
+      }
     }
   };
 
   const handleExportAzure = async () => {
+    // ✅ Check if user has permission
+    if (!status?.canExportAzure) {
+      setShowUpgradeModal(true);
+      toast.error("A exportação para Azure DevOps está disponível apenas nos planos Pro e Business.");
+      return;
+    }
+
     try {
       const result = await exportAzureMutation.mutateAsync({ featureId });
       toast.success(`Feature exportada para Azure DevOps! Epic ID: ${result.epicId}`);
       utils.features.getById.invalidate({ id: featureId });
       utils.features.list.invalidate();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Erro ao exportar para Azure DevOps";
+    } catch (error: any) {
+      const message = error?.message || "Erro ao exportar para Azure DevOps";
       toast.error(message);
+      
+      // Show upgrade modal if error is subscription-related
+      if (message.includes("plano") || message.includes("Upgrade")) {
+        setShowUpgradeModal(true);
+      }
     }
   };
 
@@ -163,11 +192,33 @@ export default function FeatureDetail() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="bg-background/95 backdrop-blur-sm border-white/10">
-              <DropdownMenuItem onClick={handleExportJira} className="cursor-pointer">
-                Exportar para Jira
+              <DropdownMenuItem 
+                onClick={handleExportJira} 
+                className="cursor-pointer"
+                disabled={!status?.canExportJira}
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span>Exportar para Jira</span>
+                  {!status?.canExportJira && (
+                    <Badge variant="outline" className="ml-2 text-xs bg-primary/10 text-primary border-primary/30">
+                      Pro
+                    </Badge>
+                  )}
+                </div>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleExportAzure} className="cursor-pointer">
-                Exportar para Azure DevOps
+              <DropdownMenuItem 
+                onClick={handleExportAzure} 
+                className="cursor-pointer"
+                disabled={!status?.canExportAzure}
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span>Exportar para Azure DevOps</span>
+                  {!status?.canExportAzure && (
+                    <Badge variant="outline" className="ml-2 text-xs bg-primary/10 text-primary border-primary/30">
+                      Pro
+                    </Badge>
+                  )}
+                </div>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -343,6 +394,13 @@ export default function FeatureDetail() {
           </div>
         </div>
       </GlassCard>
+
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        open={showUpgradeModal}
+        onOpenChange={setShowUpgradeModal}
+        limitType="export"
+      />
     </div>
   );
 }

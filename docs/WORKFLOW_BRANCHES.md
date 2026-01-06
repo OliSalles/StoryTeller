@@ -215,3 +215,11 @@ VOCÊ (local)                  GITHUB                 EASYPANEL
 
 **Agora você tem um workflow profissional de Git! 🎉**
 
+
+
+
+
+
+
+
+

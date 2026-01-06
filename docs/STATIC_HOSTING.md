@@ -197,3 +197,11 @@ Com essas informações, vou criar os scripts exatos que você precisa! 🚀
 
 
 
+
+
+
+
+
+
+
+

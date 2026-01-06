@@ -15,6 +15,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Loader2, Sparkles, Send } from "lucide-react";
 import { useLocation } from "wouter";
+import { UpgradeModal } from "@/components/UpgradeModal";
 
 export default function GenerateFeature() {
   const [, setLocation] = useLocation();
@@ -22,17 +23,32 @@ export default function GenerateFeature() {
   const [language, setLanguage] = useState<"pt" | "en">("pt");
   const [technology, setTechnology] = useState("none");
   const [includeTasks, setIncludeTasks] = useState(true);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const generateMutation = trpc.features.generate.useMutation();
   const cancelMutation = trpc.features.cancelExecution.useMutation();
   const { data: activeExecution, refetch: refetchActiveExecution } = trpc.features.getActiveExecution.useQuery(
     undefined,
     { refetchInterval: generateMutation.isPending ? 2000 : false } // Poll every 2s while generating
   );
+  
+  // ✅ Get subscription status and usage
+  const { data: usage } = trpc.subscriptions.getUsage.useQuery();
+  const { data: status } = trpc.subscriptions.getStatus.useQuery();
 
   const handleGenerate = async () => {
     if (prompt.trim().length < 10) {
       toast.error("Por favor, descreva sua feature com mais detalhes");
       return;
+    }
+
+    // ✅ Check if user is close to token limit (90%)
+    if (usage?.tokens && usage.tokens.limit) {
+      const tokenPercentage = usage.tokens.percentage || 0;
+      if (tokenPercentage >= 90) {
+        setShowUpgradeModal(true);
+        toast.warning("Você está próximo do limite de tokens. Considere fazer upgrade!");
+        return;
+      }
     }
 
     try {
@@ -45,9 +61,16 @@ export default function GenerateFeature() {
       toast.success("Feature gerada com sucesso!");
       await refetchActiveExecution(); // Refresh active execution status
       setLocation(`/features/${result.featureId}`);
-    } catch (error) {
+    } catch (error: any) {
       await refetchActiveExecution(); // Refresh even on error
-      toast.error("Erro ao gerar feature. Tente novamente ou entre em contato com o suporte.");
+      
+      // ✅ Check if error is subscription-related
+      if (error?.message?.includes("limite") || error?.message?.includes("Upgrade") || error?.message?.includes("plano")) {
+        setShowUpgradeModal(true);
+        toast.error(error.message);
+      } else {
+        toast.error("Erro ao gerar feature. Tente novamente ou entre em contato com o suporte.");
+      }
     }
   };
 
@@ -236,6 +259,13 @@ export default function GenerateFeature() {
           </div>
         </GlassCard>
       )}
+
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        open={showUpgradeModal}
+        onOpenChange={setShowUpgradeModal}
+        limitType="tokens"
+      />
     </div>
   );
 }

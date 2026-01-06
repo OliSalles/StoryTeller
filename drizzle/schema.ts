@@ -1,4 +1,4 @@
-import { integer, pgEnum, pgTable, text, timestamp, varchar, serial } from "drizzle-orm/pg-core";
+import { integer, pgEnum, pgTable, text, timestamp, varchar, serial, boolean } from "drizzle-orm/pg-core";
 
 /**
  * Core user table backing auth flow.
@@ -189,3 +189,102 @@ export const executionLogs = pgTable("execution_logs", {
 
 export type ExecutionLog = typeof executionLogs.$inferSelect;
 export type InsertExecutionLog = typeof executionLogs.$inferInsert;
+
+/**
+ * Token usage table - tracks LLM token consumption
+ */
+export const tokenUsage = pgTable("token_usage", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  featureId: integer("feature_id"),
+  operation: varchar("operation", { length: 128 }).notNull(), // "feature_generation", "consolidation", etc
+  model: varchar("model", { length: 128 }).notNull(),
+  promptTokens: integer("prompt_tokens").notNull(),
+  completionTokens: integer("completion_tokens").notNull(),
+  totalTokens: integer("total_tokens").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type TokenUsage = typeof tokenUsage.$inferSelect;
+export type InsertTokenUsage = typeof tokenUsage.$inferInsert;
+
+/**
+ * Subscription system - Plans, Subscriptions, Payments
+ */
+
+// Subscription status enum
+export const subscriptionStatusEnum = pgEnum("subscription_status", [
+  "active",
+  "canceled",
+  "past_due",
+  "trialing",
+  "incomplete"
+]);
+
+// Billing cycle enum
+export const billingCycleEnum = pgEnum("billing_cycle", ["monthly", "yearly"]);
+
+// Subscription plans table
+export const subscriptionPlans = pgTable("subscription_plans", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 64 }).notNull().unique(), // 'free', 'pro', 'business'
+  displayName: varchar("display_name", { length: 128 }).notNull(),
+  priceMonthly: integer("price_monthly"), // Em centavos: 4900 = R$ 49,00
+  priceYearly: integer("price_yearly"), // Em centavos: 49000 = R$ 490,00
+  featuresLimit: integer("features_limit"), // NULL = unlimited
+  tokensLimit: integer("tokens_limit"), // NULL = unlimited
+  canExportJira: boolean("can_export_jira").default(false),
+  canExportAzure: boolean("can_export_azure").default(false),
+  hasApiAccess: boolean("has_api_access").default(false),
+  hasPrioritySupport: boolean("has_priority_support").default(false),
+  hasTrialDays: integer("has_trial_days").default(0), // 0 = sem trial
+  isActive: boolean("is_active").default(true),
+  stripeMonthlyPriceId: varchar("stripe_monthly_price_id", { length: 255 }),
+  stripeYearlyPriceId: varchar("stripe_yearly_price_id", { length: 255 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
+export type InsertSubscriptionPlan = typeof subscriptionPlans.$inferInsert;
+
+// Subscriptions table
+export const subscriptions = pgTable("subscriptions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  planId: integer("plan_id").notNull().references(() => subscriptionPlans.id),
+  status: subscriptionStatusEnum("status").notNull(),
+  billingCycle: billingCycleEnum("billing_cycle").notNull(),
+  currentPeriodStart: timestamp("current_period_start").notNull(),
+  currentPeriodEnd: timestamp("current_period_end").notNull(),
+  cancelAtPeriodEnd: boolean("cancel_at_period_end").default(false),
+  
+  // External IDs from Stripe
+  stripeSubscriptionId: varchar("stripe_subscription_id", { length: 255 }),
+  stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
+  
+  // Usage tracking for current period
+  tokensUsedThisPeriod: integer("tokens_used_this_period").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type Subscription = typeof subscriptions.$inferSelect;
+export type InsertSubscription = typeof subscriptions.$inferInsert;
+
+// Payments table
+export const payments = pgTable("payments", {
+  id: serial("id").primaryKey(),
+  subscriptionId: integer("subscription_id").notNull().references(() => subscriptions.id),
+  amount: integer("amount").notNull(), // Em centavos
+  currency: varchar("currency", { length: 3 }).default("BRL"),
+  status: varchar("status", { length: 32 }).notNull(), // 'succeeded', 'failed', 'pending'
+  stripePaymentIntentId: varchar("stripe_payment_intent_id", { length: 255 }),
+  paymentMethod: varchar("payment_method", { length: 64 }), // 'card'
+  errorMessage: text("error_message"),
+  paidAt: timestamp("paid_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type Payment = typeof payments.$inferSelect;
+export type InsertPayment = typeof payments.$inferInsert;

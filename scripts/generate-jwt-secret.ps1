@@ -29,3 +29,12 @@ Write-ColorOutput Yellow "Nunca compartilhe este valor publicamente!`n"
 
 
 
+
+
+
+
+
+
+
+
+

@@ -133,3 +133,11 @@ OPENAI_API_KEY=sk-proj-sua-chave
 
 **Tudo pronto! Agora você tem ambientes separados! 🚀**
 
+
+
+
+
+
+
+
+

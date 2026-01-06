@@ -4,6 +4,7 @@ import { protectedProcedure, router } from "./_core/trpc";
 import { invokeLLM } from "./_core/llm";
 import * as db from "./db";
 import { generateFeaturePdf } from "./pdf";
+import { checkTokenLimit, getUserSubscriptionInfo } from "./_core/subscription-guard";
 
 /**
  * Global map to store active AbortControllers by execution log ID
@@ -68,6 +69,10 @@ export const featuresRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      // ✅ Check token limit BEFORE refining (estimated 3000 tokens)
+      const estimatedTokens = 3000;
+      await checkTokenLimit(ctx.user.id, estimatedTokens);
+
       // Get existing feature and stories
       const feature = await db.getFeatureById(input.featureId);
       if (!feature) {
@@ -133,7 +138,9 @@ Return your response in the following JSON format:
           { role: "system", content: systemPrompt },
           { role: "user", content: input.refinementPrompt },
         ],
-
+        userId: ctx.user.id,
+        featureId: input.featureId,
+        operation: "feature_refinement",
       });
 
       if (!response || !response.choices || response.choices.length === 0) {
@@ -213,6 +220,16 @@ Return your response in the following JSON format:
       console.log('[GENERATE] Language:', input.language);
       console.log('[GENERATE] Technology:', input.technology || 'Not specified');
       console.log('[GENERATE] Include Tasks:', input.includeTasks);
+
+      // ✅ Check token limit BEFORE generating (estimated 5000 tokens per feature)
+      const estimatedTokens = 5000;
+      try {
+        await checkTokenLimit(ctx.user.id, estimatedTokens);
+        console.log('[GENERATE] Token limit check passed');
+      } catch (error: any) {
+        console.log('[GENERATE] Token limit exceeded for user:', ctx.user.id);
+        throw error; // Re-throw the SubscriptionError with proper message
+      }
 
       // Create execution log
       const executionLogId = await db.createExecutionLog({
@@ -295,6 +312,8 @@ Generate user stories for this part only. Return JSON format:
                 { role: "system", content: chunkPrompt },
                 { role: "user", content: chunk },
               ],
+              userId: ctx.user.id,
+              operation: `feature_generation_chunk_${i + 1}`,
               response_format: {
                 type: "json_schema",
                 json_schema: {
@@ -474,6 +493,8 @@ Create a comprehensive feature title and description that encompasses all parts.
               { role: "system", content: consolidationPrompt },
               { role: "user", content: input.prompt },
             ],
+            userId: ctx.user.id,
+            operation: "feature_generation_consolidation",
           }),
           120000, // 2 minutes timeout
           "Consolidation processing timeout after 2 minutes"
@@ -629,6 +650,8 @@ Return your response in the following JSON format:
           { role: "system", content: systemPrompt },
           { role: "user", content: input.prompt },
         ],
+        userId: ctx.user.id,
+        operation: "feature_generation_simple",
         response_format: {
           type: "json_schema",
           json_schema: {
@@ -823,6 +846,15 @@ Return your response in the following JSON format:
   exportToJira: protectedProcedure
     .input(z.object({ featureId: z.number() }))
     .mutation(async ({ ctx, input }) => {
+      // ✅ Check if user has permission to export to Jira
+      const subscriptionInfo = await getUserSubscriptionInfo(ctx.user.id);
+      if (!subscriptionInfo.canExportJira) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "A exportação para Jira está disponível apenas nos planos Pro e Business. Faça upgrade para continuar!",
+        });
+      }
+
       // Get feature and stories
       const feature = await db.getFeatureById(input.featureId);
       if (!feature || feature.userId !== ctx.user.id) {

@@ -1,8 +1,62 @@
-# Scripts de Deploy
+# Scripts de Deploy e Configuração
 
-Esta pasta contém scripts automatizados para facilitar o deployment do Bardo AI.
+Esta pasta contém scripts automatizados para facilitar o deployment e configuração do StroryTeller AI.
 
 ## Scripts Disponíveis
+
+### `configure-customer-portal.js` - Configurar Portal do Cliente Stripe
+Script Node.js que configura automaticamente o Portal do Cliente do Stripe com todas as funcionalidades necessárias.
+
+**O que faz:**
+- Cria uma configuração personalizada do Portal do Cliente
+- Habilita gerenciamento de assinaturas (upgrade/downgrade)
+- Habilita cancelamento de assinaturas
+- Habilita gerenciamento de métodos de pagamento
+- Habilita visualização de histórico de faturas
+- Habilita atualização de informações de faturamento
+- Configura URL de retorno padrão
+
+**Uso:**
+```bash
+npm run stripe:configure-portal
+```
+
+**Requisitos:**
+- Arquivo `.env` com `STRIPE_SECRET_KEY` configurada
+- Conta Stripe ativa
+
+**Funcionalidades habilitadas:**
+- ✅ Atualizar assinatura (upgrade/downgrade)
+- ✅ Cancelar assinatura (ao final do período)
+- ✅ Gerenciar métodos de pagamento
+- ✅ Ver histórico de faturas
+- ✅ Atualizar informações de faturamento
+- ✅ Adicionar IDs fiscais
+
+**Documentação completa:** `/docs/PORTAL_CLIENTE_STRIPE.md`
+
+---
+
+### `seed-plans.js` - Popular Planos de Assinatura
+Script Node.js que popula ou atualiza os planos de assinatura no banco de dados com os preços e IDs do Stripe configurados.
+
+**O que faz:**
+- Conecta ao banco de dados usando a `DATABASE_URL` do `.env`
+- Executa o SQL do arquivo `seed-subscription-plans.sql`
+- Cria ou atualiza os planos: Free, Pro e Business
+- Configura os IDs dos preços do Stripe
+- Mostra uma lista dos planos cadastrados
+
+**Uso:**
+```bash
+npm run db:seed:plans
+```
+
+**Requisitos:**
+- Arquivo `.env` com `DATABASE_URL` configurada
+- Banco de dados criado e com as tabelas migradas (`npm run db:push`)
+
+---
 
 ### `deploy.js` (Linux/Mac/Node)
 Script Node.js que automatiza todo o processo de deploy:
@@ -91,7 +145,7 @@ Você pode modificar os scripts para adicionar:
 ```bash
 # 1. Clone o projeto
 git clone seu-repo
-cd bardoAi
+cd stroryTeller
 
 # 2. Crie o .env
 cp .env.example .env
@@ -108,7 +162,7 @@ npm run dev
 ```bash
 # 1. No servidor, clone o projeto
 git clone seu-repo
-cd bardoAi
+cd stroryTeller
 
 # 2. Configure o .env de produção
 nano .env
@@ -121,7 +175,7 @@ NODE_ENV=production npm run deploy
 npm start
 
 # Ou use PM2 para manter rodando:
-pm2 start "npm start" --name bardoai
+pm2 start "npm start" --name stroryTeller
 pm2 save
 pm2 startup
 ```
@@ -148,6 +202,15 @@ deploy:
     DATABASE_URL: $DATABASE_URL
     JWT_SECRET: $JWT_SECRET
 ```
+
+
+
+
+
+
+
+
+
 
 
 

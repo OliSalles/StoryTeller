@@ -119,3 +119,11 @@ docker-compose logs postgres
 
 
 
+
+
+
+
+
+
+
+

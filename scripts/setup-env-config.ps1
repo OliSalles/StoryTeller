@@ -64,3 +64,12 @@ if ($Environment -eq "dev") {
 Write-Host ""
 Write-Host "📖 Leia: CONFIGURACAO_AMBIENTES.md para mais detalhes"
 
+
+
+
+
+
+
+
+
+

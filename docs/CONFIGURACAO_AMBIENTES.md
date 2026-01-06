@@ -256,3 +256,11 @@ Está no `.gitignore` para evitar vazar credenciais.
 
 **Agora você tem ambientes separados e profissionais! 🚀**
 
+
+
+
+
+
+
+
+

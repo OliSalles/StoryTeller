@@ -21,6 +21,8 @@ import {
   InsertTask,
   executionLogs,
   InsertExecutionLog,
+  tokenUsage,
+  InsertTokenUsage,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -457,4 +459,97 @@ export async function deleteFeature(featureId: number) {
   
   // Delete feature (cascade will automatically delete related stories and tasks)
   await db.delete(features).where(eq(features.id, featureId));
+}
+
+// Token usage queries
+export async function createTokenUsage(usage: InsertTokenUsage) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.insert(tokenUsage).values(usage);
+}
+
+export async function getTokenUsageByUserId(userId: number, startDate?: Date, endDate?: Date) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  let query = db.select().from(tokenUsage).where(eq(tokenUsage.userId, userId));
+  
+  // Adicionar filtros de data se fornecidos
+  if (startDate && endDate) {
+    query = query.where(
+      and(
+        eq(tokenUsage.userId, userId),
+        // @ts-ignore - drizzle typing issue with date comparison
+        desc(tokenUsage.createdAt)
+      )
+    );
+  }
+  
+  return query.orderBy(desc(tokenUsage.createdAt));
+}
+
+export async function getTokenUsageStats(userId: number, days: number = 30) {
+  const db = await getDb();
+  if (!db) return { totalTokens: 0, totalCost: 0, requests: 0 };
+  
+  // Buscar uso dos últimos N dias
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - days);
+  
+  const results = await db
+    .select()
+    .from(tokenUsage)
+    .where(eq(tokenUsage.userId, userId))
+    .orderBy(desc(tokenUsage.createdAt));
+  
+  // Filtrar por data manualmente (mais compatível)
+  const filtered = results.filter(r => r.createdAt && r.createdAt >= cutoffDate);
+  
+  const totalTokens = filtered.reduce((sum, r) => sum + r.totalTokens, 0);
+  const requests = filtered.length;
+  
+  // Estimativa de custo (baseado em gpt-4o-mini: $0.150 / 1M input tokens, $0.600 / 1M output tokens)
+  const inputCost = filtered.reduce((sum, r) => sum + (r.promptTokens * 0.15 / 1000000), 0);
+  const outputCost = filtered.reduce((sum, r) => sum + (r.completionTokens * 0.60 / 1000000), 0);
+  const totalCost = inputCost + outputCost;
+  
+  return { totalTokens, totalCost, requests };
+}
+
+// Buscar tokens usados no mês atual (para plano free)
+export async function getTokenUsageThisMonth(userId: number) {
+  const db = await getDb();
+  if (!db) return 0;
+  
+  const startOfMonth = new Date();
+  startOfMonth.setDate(1);
+  startOfMonth.setHours(0, 0, 0, 0);
+  
+  const results = await db
+    .select()
+    .from(tokenUsage)
+    .where(eq(tokenUsage.userId, userId))
+    .orderBy(desc(tokenUsage.createdAt));
+  
+  // Filtrar por data manualmente (início do mês)
+  const filtered = results.filter(r => r.createdAt && r.createdAt >= startOfMonth);
+  
+  return filtered.reduce((sum, r) => sum + r.totalTokens, 0);
+}
+
+// Buscar tokens usados desde uma data específica (para períodos de assinatura)
+export async function getTokenUsageSinceDate(userId: number, startDate: Date) {
+  const db = await getDb();
+  if (!db) return 0;
+  
+  const results = await db
+    .select()
+    .from(tokenUsage)
+    .where(eq(tokenUsage.userId, userId))
+    .orderBy(desc(tokenUsage.createdAt));
+  
+  // Filtrar por data manualmente
+  const filtered = results.filter(r => r.createdAt && r.createdAt >= startDate);
+  
+  return filtered.reduce((sum, r) => sum + r.totalTokens, 0);
 }

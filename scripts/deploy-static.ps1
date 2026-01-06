@@ -29,8 +29,8 @@ function Format-Bytes($Bytes) {
 
 # Banner
 Write-ColorOutput Blue "`n========================================"
-Write-ColorOutput Blue "   Deploy Estatico - Bardo AI"
-Write-ColorOutput Blue "========================================"
+Write-ColorOutput Blue "   Deploy Estatico - StroryTeller AI"
+Write-ColorOutput Blue "=========================================="
 
 # 1. Verificar .env
 if (!(Test-Path ".env")) {
@@ -105,6 +105,15 @@ $response = Read-Host
 if ($response -eq "S" -or $response -eq "s") {
     Start-Process explorer.exe -ArgumentList (Resolve-Path $publicDir)
 }
+
+
+
+
+
+
+
+
+
 
 
 

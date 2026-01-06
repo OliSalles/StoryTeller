@@ -16,6 +16,10 @@ import GenerateFeature from "./pages/GenerateFeature";
 import FeatureDetail from "./pages/FeatureDetail";
 import History from "./pages/History";
 import Executions from "./pages/Executions";
+import TokenUsage from "./pages/TokenUsage";
+import Pricing from "./pages/Pricing";
+import AccountSubscription from "./pages/AccountSubscription";
+import SubscriptionSuccess from "./pages/SubscriptionSuccess";
 
 function Router() {
   return (
@@ -63,6 +67,30 @@ function Router() {
       <Route path={"/executions"}>
         <DashboardLayout>
           <Executions />
+        </DashboardLayout>
+      </Route>
+
+      <Route path={"/tokens"}>
+        <DashboardLayout>
+          <TokenUsage />
+        </DashboardLayout>
+      </Route>
+
+      <Route path={"/pricing"}>
+        <DashboardLayout>
+          <Pricing />
+        </DashboardLayout>
+      </Route>
+
+      <Route path={"/subscription/success"}>
+        <DashboardLayout>
+          <SubscriptionSuccess />
+        </DashboardLayout>
+      </Route>
+
+      <Route path={"/account/subscription"}>
+        <DashboardLayout>
+          <AccountSubscription />
         </DashboardLayout>
       </Route>
 

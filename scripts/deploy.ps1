@@ -47,7 +47,7 @@ function Check-EnvFile {
 
 # Banner
 Write-ColorOutput Blue "`n========================================"
-Write-ColorOutput Blue "   Deploy Script - Bardo AI"
+Write-ColorOutput Blue "   Deploy Script - StroryTeller AI"
 Write-ColorOutput Blue "========================================"
 
 # 1. Verificar .env

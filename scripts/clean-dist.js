@@ -22,3 +22,12 @@ if (fs.existsSync(distPath)) {
   console.log('✅ Pasta dist/ não existe, tudo certo!');
 }
 
+
+
+
+
+
+
+
+
+

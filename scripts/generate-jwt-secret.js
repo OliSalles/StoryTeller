@@ -36,3 +36,12 @@ log('   Nunca compartilhe este valor publicamente!\n', 'yellow');
 
 
 
+
+
+
+
+
+
+
+
+

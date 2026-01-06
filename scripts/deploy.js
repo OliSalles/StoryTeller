@@ -56,7 +56,7 @@ function checkEnvFile() {
 
 async function main() {
   log('╔════════════════════════════════════════╗', 'blue');
-  log('║   🚀 Deploy Script - Bardo AI          ║', 'blue');
+  log('║   🚀 Deploy Script - StroryTeller AI   ║', 'blue');
   log('╚════════════════════════════════════════╝', 'blue');
 
   // 1. Verificar .env
@@ -106,6 +106,15 @@ main().catch((error) => {
   log(`\n✗ Erro fatal: ${error.message}`, 'red');
   process.exit(1);
 });
+
+
+
+
+
+
+
+
+
 
 
 

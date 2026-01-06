@@ -20,16 +20,33 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Sparkles, History, Settings, FileText, Brain, GitBranch, Cloud } from "lucide-react";
+import {
+  LayoutDashboard,
+  LogOut,
+  PanelLeft,
+  Sparkles,
+  History,
+  Settings,
+  FileText,
+  Brain,
+  GitBranch,
+  Cloud,
+  TrendingUp,
+  CreditCard,
+  Zap,
+} from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
-import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
+import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
 import { Button } from "./ui/button";
 
 const menuItems = [
   { icon: Sparkles, label: "Gerar Feature", path: "/generate" },
   { icon: History, label: "Histórico", path: "/history" },
   { icon: FileText, label: "Execuções", path: "/executions" },
+  { icon: TrendingUp, label: "Uso de Tokens", path: "/tokens" },
+  { icon: Zap, label: "Planos", path: "/pricing" },
+  { icon: CreditCard, label: "Assinatura", path: "/account/subscription" },
   { icon: Brain, label: "Config. LLM", path: "/config/llm" },
   { icon: GitBranch, label: "Config. Jira", path: "/config/jira" },
   { icon: Cloud, label: "Config. Azure DevOps", path: "/config/azure-devops" },
@@ -56,7 +73,7 @@ export default function DashboardLayout({
   }, [sidebarWidth]);
 
   if (loading) {
-    return <DashboardLayoutSkeleton />
+    return <DashboardLayoutSkeleton />;
   }
 
   if (!user) {
@@ -156,9 +173,13 @@ function DashboardLayoutContent({
               </button>
               {!isCollapsed ? (
                 <div className="flex items-center gap-2 min-w-0">
-                  <img src="/bardo-logo.png" alt="Bardo" className="h-8 w-8 shrink-0" />
+                  <img
+                    src="/logo.png"
+                    alt="Story Teller"
+                    className="h-8 w-8 shrink-0"
+                  />
                   <span className="font-semibold tracking-tight truncate">
-                    Bardo
+                    Story Teller
                   </span>
                 </div>
               ) : null}
@@ -169,8 +190,11 @@ function DashboardLayoutContent({
             <SidebarMenu className="px-2 py-1">
               {menuItems
                 .filter(item => {
-                  // Mostrar Config. LLM apenas para admin
-                  if (item.path === "/config/llm") {
+                  // Mostrar Config. LLM e Execuções apenas para admin
+                  if (
+                    item.path === "/config/llm" ||
+                    item.path === "/executions"
+                  ) {
                     return user?.role === "admin";
                   }
                   return true;

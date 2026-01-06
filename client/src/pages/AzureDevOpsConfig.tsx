@@ -37,7 +37,9 @@ export default function AzureDevOpsConfig() {
 
   const handleSave = async () => {
     if (!organization || !project || !pat) {
-      toast.error("Preencha os campos obrigatórios: Organização, Projeto e PAT");
+      toast.error(
+        "Preencha os campos obrigatórios: Organização, Projeto e PAT"
+      );
       return;
     }
 
@@ -74,7 +76,9 @@ export default function AzureDevOpsConfig() {
           <Cloud className="w-6 h-6 text-primary" />
         </div>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Configuração Azure DevOps</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Configuração Azure DevOps
+          </h1>
           <p className="text-muted-foreground mt-1">
             Configure sua integração com Azure DevOps para exportar features
           </p>
@@ -85,18 +89,19 @@ export default function AzureDevOpsConfig() {
         <div className="space-y-6">
           <div className="space-y-4">
             <h2 className="text-xl font-semibold">Credenciais de Acesso</h2>
-            
+
             <div className="space-y-2">
               <Label htmlFor="organization">Organização *</Label>
               <Input
                 id="organization"
                 value={organization}
-                onChange={(e) => setOrganization(e.target.value)}
+                onChange={e => setOrganization(e.target.value)}
                 placeholder="ex: minhaempresa"
                 className="bg-white/5 border-white/10 focus:border-primary/50"
               />
               <p className="text-sm text-muted-foreground">
-                Nome da sua organização no Azure DevOps (https://dev.azure.com/[organização])
+                Nome da sua organização no Azure DevOps
+                (https://dev.azure.com/[organização])
               </p>
             </div>
 
@@ -105,7 +110,7 @@ export default function AzureDevOpsConfig() {
               <Input
                 id="project"
                 value={project}
-                onChange={(e) => setProject(e.target.value)}
+                onChange={e => setProject(e.target.value)}
                 placeholder="ex: MeuProjeto"
                 className="bg-white/5 border-white/10 focus:border-primary/50"
               />
@@ -120,84 +125,85 @@ export default function AzureDevOpsConfig() {
                 id="pat"
                 type="password"
                 value={pat}
-                onChange={(e) => setPat(e.target.value)}
+                onChange={e => setPat(e.target.value)}
                 placeholder="••••••••••••••••••••"
                 className="bg-white/5 border-white/10 focus:border-primary/50"
               />
               <p className="text-sm text-muted-foreground">
-                Token de acesso pessoal com permissões de Work Items (Read, Write & Manage)
+                Token de acesso pessoal com permissões de Work Items (Read,
+                Write & Manage)
               </p>
             </div>
           </div>
 
           <div className="pt-6 border-t border-white/10 space-y-4">
-            <h2 className="text-xl font-semibold">Configurações Padrão</h2>
+            <h2 className="text-xl font-semibold">Configurações</h2>
             <p className="text-sm text-muted-foreground">
-              Defina valores padrão que serão usados ao exportar features (opcional)
+              Defina valores que serão usados ao exportar features (opcional)
             </p>
 
             <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="defaultArea">Área Padrão</Label>
+                <Label htmlFor="defaultArea">Área</Label>
                 <Input
                   id="defaultArea"
                   value={defaultArea}
-                  onChange={(e) => setDefaultArea(e.target.value)}
+                  onChange={e => setDefaultArea(e.target.value)}
                   placeholder="ex: MeuProjeto\\Backend"
                   className="bg-white/5 border-white/10 focus:border-primary/50"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="defaultIteration">Iteração Padrão</Label>
+                <Label htmlFor="defaultIteration">Iteração</Label>
                 <Input
                   id="defaultIteration"
                   value={defaultIteration}
-                  onChange={(e) => setDefaultIteration(e.target.value)}
+                  onChange={e => setDefaultIteration(e.target.value)}
                   placeholder="ex: Sprint 1"
                   className="bg-white/5 border-white/10 focus:border-primary/50"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="defaultState">Estado Padrão</Label>
+                <Label htmlFor="defaultState">Estado</Label>
                 <Input
                   id="defaultState"
                   value={defaultState}
-                  onChange={(e) => setDefaultState(e.target.value)}
+                  onChange={e => setDefaultState(e.target.value)}
                   placeholder="ex: New, Active, Resolved"
                   className="bg-white/5 border-white/10 focus:border-primary/50"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="defaultBoard">Board Padrão</Label>
+                <Label htmlFor="defaultBoard">Board</Label>
                 <Input
                   id="defaultBoard"
                   value={defaultBoard}
-                  onChange={(e) => setDefaultBoard(e.target.value)}
+                  onChange={e => setDefaultBoard(e.target.value)}
                   placeholder="ex: Backlog"
                   className="bg-white/5 border-white/10 focus:border-primary/50"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="defaultColumn">Coluna Padrão</Label>
+                <Label htmlFor="defaultColumn">Coluna</Label>
                 <Input
                   id="defaultColumn"
                   value={defaultColumn}
-                  onChange={(e) => setDefaultColumn(e.target.value)}
+                  onChange={e => setDefaultColumn(e.target.value)}
                   placeholder="ex: New, In Progress, Done"
                   className="bg-white/5 border-white/10 focus:border-primary/50"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="defaultSwimlane">Swimlane Padrão</Label>
+                <Label htmlFor="defaultSwimlane">Swimlane</Label>
                 <Input
                   id="defaultSwimlane"
                   value={defaultSwimlane}
-                  onChange={(e) => setDefaultSwimlane(e.target.value)}
+                  onChange={e => setDefaultSwimlane(e.target.value)}
                   placeholder="ex: Default"
                   className="bg-white/5 border-white/10 focus:border-primary/50"
                 />
@@ -232,13 +238,21 @@ export default function AzureDevOpsConfig() {
         <div className="flex gap-3">
           <Cloud className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
           <div className="space-y-2">
-            <h3 className="font-semibold text-blue-300">Como obter um Personal Access Token</h3>
+            <h3 className="font-semibold text-blue-300">
+              Como obter um Personal Access Token
+            </h3>
             <ol className="text-sm text-foreground/80 space-y-1 list-decimal list-inside">
-              <li>Acesse Azure DevOps e clique no ícone de usuário no canto superior direito</li>
+              <li>
+                Acesse Azure DevOps e clique no ícone de usuário no canto
+                superior direito
+              </li>
               <li>Selecione "Personal access tokens"</li>
               <li>Clique em "New Token"</li>
               <li>Dê um nome ao token e selecione a organização</li>
-              <li>Em "Scopes", selecione "Work Items" com permissões "Read, Write & Manage"</li>
+              <li>
+                Em "Scopes", selecione "Work Items" com permissões "Read, Write
+                & Manage"
+              </li>
               <li>Clique em "Create" e copie o token gerado</li>
             </ol>
           </div>

@@ -78,6 +78,15 @@
 | **[ENV_MANAGEMENT.md](./ENV_MANAGEMENT.md)** | Gerenciamento de ambientes | Referência |
 | **[DATABASE.md](./DATABASE.md)** | Setup banco de dados local | Passo a passo |
 
+### 💳 Stripe e Assinaturas
+
+| Guia | Descrição | Tamanho |
+|------|-----------|---------|
+| **[PORTAL_CLIENTE_STRIPE.md](./PORTAL_CLIENTE_STRIPE.md)** | Portal do Cliente - Guia Completo | ~600 linhas |
+| **[GUIA_TESTE_PORTAL_CLIENTE.md](./GUIA_TESTE_PORTAL_CLIENTE.md)** | Guia de Testes do Portal | ~400 linhas |
+| **[GUIA_CONFIGURACAO_STRIPE.md](./GUIA_CONFIGURACAO_STRIPE.md)** | Configuração inicial do Stripe | Referência |
+| **[SISTEMA_ASSINATURAS_README.md](./SISTEMA_ASSINATURAS_README.md)** | Sistema de Assinaturas | Visão geral |
+
 ---
 
 ## 🎓 Fluxograma de Decisão
@@ -141,6 +150,22 @@ npm run db:push
 
 # Verificar tipos TypeScript
 npm run check
+```
+
+### Scripts Stripe
+
+```powershell
+# Configurar Portal do Cliente
+npm run stripe:configure-portal
+
+# Verificar configuração do Stripe
+npm run stripe:check
+
+# Popular planos de assinatura
+npm run db:seed:plans
+
+# Debugar assinaturas
+npm run db:debug
 ```
 
 ---

@@ -7,6 +7,9 @@ import { configRouter } from "./config.routers";
 import { featuresRouter } from "./features.routers";
 import { executionsRouter } from "./executions.routers";
 import { authRouter } from "./auth.routers";
+import { tokensRouter } from "./tokens.routers";
+import { subscriptionsRouter } from "./subscriptions.routers";
+import { checkoutSyncRouter } from "./checkout-sync.routers";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -28,6 +31,9 @@ export const appRouter = router({
   config: configRouter,
   features: featuresRouter,
   executions: executionsRouter,
+  tokens: tokensRouter,
+  subscriptions: subscriptionsRouter,
+  checkoutSync: checkoutSyncRouter,
 
   // Feature routers added
   // todo: router({

@@ -1,5 +1,6 @@
 import { ENV } from "./env";
 import * as db from "../db";
+import * as subscriptionDb from "../subscriptions";
 import OpenAI from "openai";
 
 export type Role = "system" | "user" | "assistant" | "tool" | "function";
@@ -68,6 +69,10 @@ export type InvokeParams = {
   output_schema?: OutputSchema;
   responseFormat?: ResponseFormat;
   response_format?: ResponseFormat;
+  // Campos para rastreamento de uso de tokens
+  userId?: number;
+  featureId?: number;
+  operation?: string;
 };
 
 export type ToolCall = {
@@ -300,6 +305,9 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     output_schema,
     responseFormat,
     response_format,
+    userId,
+    featureId,
+    operation,
   } = params;
 
   // Se for OpenAI, usar o SDK oficial
@@ -349,6 +357,28 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     console.log('[LLM] Calling OpenAI API...');
     const response = await openai.chat.completions.create(chatParams);
     console.log('[LLM] OpenAI response received');
+    
+    // Salvar uso de tokens se userId for fornecido
+    if (userId && response.usage) {
+      try {
+        // Salvar no histórico detalhado
+        await db.createTokenUsage({
+          userId,
+          featureId: featureId || null,
+          operation: operation || 'unknown',
+          model: llmConfig.model,
+          promptTokens: response.usage.prompt_tokens,
+          completionTokens: response.usage.completion_tokens,
+          totalTokens: response.usage.total_tokens,
+        });
+        
+        // Incrementar contador da assinatura (para planos pagos)
+        await subscriptionDb.incrementTokenUsage(userId, response.usage.total_tokens);
+      } catch (error) {
+        console.error('[LLM] Failed to save token usage:', error);
+        // Não falhar a requisição se o salvamento falhar
+      }
+    }
     
     return response as InvokeResult;
   }

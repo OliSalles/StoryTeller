@@ -4,7 +4,14 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function Register() {
@@ -23,7 +30,7 @@ export default function Register() {
       // Redirecionar com reload para garantir que o cookie seja lido
       window.location.href = "/generate";
     },
-    onError: (err) => {
+    onError: err => {
       setError(err.message);
     },
   });
@@ -31,7 +38,7 @@ export default function Register() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    
+
     if (!name || !email || !password || !confirmPassword) {
       setError("Preencha todos os campos");
       return;
@@ -55,7 +62,7 @@ export default function Register() {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <div className="flex justify-center mb-4">
-            <img src="/bardo-logo.png" alt="Bardo" className="h-12" />
+            <img src="/logo.png" alt="Story Teller" className="h-32" />
           </div>
           <CardTitle className="text-2xl text-center">Criar conta</CardTitle>
           <CardDescription className="text-center">
@@ -69,7 +76,7 @@ export default function Register() {
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-            
+
             <div className="space-y-2">
               <Label htmlFor="name">Nome completo</Label>
               <Input
@@ -77,12 +84,12 @@ export default function Register() {
                 type="text"
                 placeholder="Seu nome"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={e => setName(e.target.value)}
                 disabled={registerMutation.isPending}
                 autoComplete="name"
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -90,12 +97,12 @@ export default function Register() {
                 type="email"
                 placeholder="seu@email.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={e => setEmail(e.target.value)}
                 disabled={registerMutation.isPending}
                 autoComplete="email"
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="password">Senha</Label>
               <Input
@@ -103,12 +110,12 @@ export default function Register() {
                 type="password"
                 placeholder="••••••••"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={e => setPassword(e.target.value)}
                 disabled={registerMutation.isPending}
                 autoComplete="new-password"
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirmar senha</Label>
               <Input
@@ -116,22 +123,22 @@ export default function Register() {
                 type="password"
                 placeholder="••••••••"
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                onChange={e => setConfirmPassword(e.target.value)}
                 disabled={registerMutation.isPending}
                 autoComplete="new-password"
               />
             </div>
           </CardContent>
-          
-          <CardFooter className="flex flex-col space-y-4">
-            <Button 
-              type="submit" 
+
+          <CardFooter className="flex flex-col space-y-4 pt-6">
+            <Button
+              type="submit"
               className="w-full"
               disabled={registerMutation.isPending}
             >
               {registerMutation.isPending ? "Criando conta..." : "Criar conta"}
             </Button>
-            
+
             <div className="text-sm text-center text-muted-foreground">
               Já tem uma conta?{" "}
               <Link href="/login" className="text-primary hover:underline">
@@ -144,4 +151,3 @@ export default function Register() {
     </div>
   );
 }
-

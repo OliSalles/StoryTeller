@@ -6,7 +6,7 @@
 NODE_ENV=development
 
 # Banco de Dados Local (Docker)
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/bardo
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/stroryTeller
 
 # JWT Secret (pode ser simples em dev)
 JWT_SECRET=dev-secret-key-change-in-production
@@ -30,4 +30,13 @@ OPENAI_API_KEY=your-dev-openai-key-here
 # Debug/Logs
 DEBUG=true
 LOG_LEVEL=debug
+
+
+
+
+
+
+
+
+
 
