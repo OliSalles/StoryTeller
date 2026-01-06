@@ -16,6 +16,7 @@
     "db:migrate": "npm run db:push",
     "db:seed:plans": "node scripts/seed-plans.js",
     "db:debug": "node scripts/debug-subscription.js",
+    "db:debug:plans": "node scripts/debug-prod-plans.js",
     "db:create-test-sub": "node scripts/create-test-subscription.js",
     "stripe:check": "node scripts/check-webhook-config.js",
     "stripe:configure-portal": "node scripts/configure-customer-portal.js",
