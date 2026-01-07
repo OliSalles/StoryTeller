@@ -31,14 +31,23 @@ let _pool: typeof Pool.prototype | null = null;
 
 // Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
+  if (!_db) {
+    const dbUrl = process.env.DATABASE_URL || ENV.databaseUrl;
+    
+    if (!dbUrl) {
+      console.warn("[Database] DATABASE_URL not found in env");
+      return null;
+    }
+    
     try {
+      console.log("[Database] Connecting with URL:", dbUrl.replace(/:[^:@]+@/, ':***@')); // Hide password
       _pool = new Pool({
-        connectionString: process.env.DATABASE_URL,
+        connectionString: dbUrl,
       });
       _db = drizzle(_pool);
+      console.log("[Database] Connection established successfully");
     } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
+      console.error("[Database] Failed to connect:", error);
       _db = null;
     }
   }
@@ -149,9 +158,15 @@ export async function getUserByEmail(email: string) {
     return undefined;
   }
 
-  const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
-
-  return result.length > 0 ? result[0] : undefined;
+  try {
+    const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    return result.length > 0 ? result[0] : undefined;
+  } catch (error) {
+    console.error("[Database] Error in getUserByEmail:", error);
+    console.error("[Database] Email:", email);
+    console.error("[Database] DATABASE_URL:", process.env.DATABASE_URL ? "SET" : "NOT SET");
+    throw error;
+  }
 }
 
 export async function getUserById(id: number) {

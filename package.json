@@ -35,6 +35,8 @@
     "deploy:static:win": "powershell -ExecutionPolicy Bypass -File scripts/deploy-static.ps1",
     "generate:jwt": "node scripts/generate-jwt-secret.js",
     "generate:jwt:win": "powershell -ExecutionPolicy Bypass -File scripts/generate-jwt-secret.ps1",
+    "check:env": "node scripts/check-env-vars.js",
+    "check:env:win": "powershell -ExecutionPolicy Bypass -File scripts/check-env-vars.ps1",
     "predeploy": "npm run db:push"
   },
   "dependencies": {
