@@ -25,7 +25,7 @@ INSERT INTO subscription_plans (
   features_limit = EXCLUDED.features_limit,
   tokens_limit = EXCLUDED.tokens_limit;
 
--- Plano Pro
+-- Plano Pro (SEM trial - usuário já testou no Free)
 INSERT INTO subscription_plans (
   name, display_name, 
   price_monthly, price_yearly,
@@ -41,7 +41,7 @@ INSERT INTO subscription_plans (
   NULL, 500000, -- Features ilimitadas, 500k tokens
   true, true,
   false, false,
-  7, -- 7 dias de trial
+  0, -- SEM trial (já existe plano Free)
   'price_1SmJ1XPF9dhbqC6rzY0iiHxO', -- ID mensal R$ 49,00
   'price_1SmOzvPF9dhbqC6rsdYMap3N', -- ID anual R$ 490,99
   true
@@ -49,6 +49,7 @@ INSERT INTO subscription_plans (
   price_monthly = EXCLUDED.price_monthly,
   price_yearly = EXCLUDED.price_yearly,
   tokens_limit = EXCLUDED.tokens_limit,
+  has_trial_days = EXCLUDED.has_trial_days,
   stripe_monthly_price_id = EXCLUDED.stripe_monthly_price_id,
   stripe_yearly_price_id = EXCLUDED.stripe_yearly_price_id;
 

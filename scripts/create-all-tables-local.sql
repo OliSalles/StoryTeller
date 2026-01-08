@@ -300,7 +300,7 @@ INSERT INTO subscription_plans (
   is_active
 ) VALUES 
   ('free', 'Gratuito', 0, 0, NULL, 50000, false, false, false, false, 0, true),
-  ('pro', 'Pro', 4900, 49099, NULL, 500000, true, true, false, false, 7, true),
+  ('pro', 'Pro', 4900, 49099, NULL, 500000, true, true, false, false, 0, true),
   ('business', 'Business', 14900, 149000, NULL, 2000000, true, true, true, true, 0, true)
 ON CONFLICT (name) DO NOTHING;
 
