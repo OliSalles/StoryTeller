@@ -14,6 +14,21 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { UpgradeModal } from "@/components/UpgradeModal";
 
@@ -39,12 +54,17 @@ export default function FeatureDetail() {
   const [showRefineDialog, setShowRefineDialog] = useState(false);
   const [refinementPrompt, setRefinementPrompt] = useState("");
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showAzureProjectDialog, setShowAzureProjectDialog] = useState(false);
+  const [selectedAzureProject, setSelectedAzureProject] = useState<string>("");
   
   const updateStoryMutation = trpc.features.updateStory.useMutation();
   const refineMutation = trpc.features.refine.useMutation();
   
   // ✅ Get subscription status
   const { data: status } = trpc.subscriptions.getStatus.useQuery();
+  
+  // ✅ Get Azure DevOps projects
+  const { data: azureConfig } = trpc.azureDevOpsImproved.getFullConfig.useQuery();
 
   const handleExportJira = async () => {
     // ✅ Check if user has permission
@@ -78,9 +98,30 @@ export default function FeatureDetail() {
       return;
     }
 
+    // Check if there are projects configured
+    if (!azureConfig?.projects || azureConfig.projects.length === 0) {
+      toast.error("Configure pelo menos um projeto do Azure DevOps antes de exportar.");
+      return;
+    }
+
+    // Open dialog to select project
+    setShowAzureProjectDialog(true);
+  };
+
+  const handleConfirmAzureExport = async () => {
+    if (!selectedAzureProject) {
+      toast.error("Selecione um projeto para exportar.");
+      return;
+    }
+
     try {
-      const result = await exportAzureMutation.mutateAsync({ featureId });
+      const result = await exportAzureMutation.mutateAsync({ 
+        featureId, 
+        projectId: parseInt(selectedAzureProject) 
+      });
       toast.success(`Feature exportada para Azure DevOps! Epic ID: ${result.epicId}`);
+      setShowAzureProjectDialog(false);
+      setSelectedAzureProject("");
       utils.features.getById.invalidate({ id: featureId });
       utils.features.list.invalidate();
     } catch (error: any) {
@@ -394,6 +435,158 @@ export default function FeatureDetail() {
           </div>
         </div>
       </GlassCard>
+
+      {/* Azure Project Selection Dialog */}
+      <Dialog open={showAzureProjectDialog} onOpenChange={setShowAzureProjectDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Selecionar Projeto Azure DevOps</DialogTitle>
+            <DialogDescription>
+              Escolha o projeto para exportar esta feature
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="azure-project">Projeto</Label>
+              <Select
+                value={selectedAzureProject}
+                onValueChange={setSelectedAzureProject}
+              >
+                <SelectTrigger id="azure-project" className="bg-white/5 border-white/10">
+                  <SelectValue placeholder="Selecione um projeto..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {azureConfig?.projects?.map((project: any) => (
+                    <SelectItem key={project.id} value={project.id.toString()}>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{project.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          ({project.projectKey})
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {selectedAzureProject && azureConfig?.projects && (
+              <div className="p-3 rounded-lg bg-white/5 border border-white/10">
+                {(() => {
+                  const project = azureConfig.projects.find(
+                    (p: any) => p.id.toString() === selectedAzureProject
+                  );
+                  return project ? (
+                    <div className="text-sm space-y-1">
+                      <p className="font-medium">{project.name}</p>
+                      {project.defaultArea && (
+                        <p className="text-muted-foreground">📍 {project.defaultArea}</p>
+                      )}
+                      {project.defaultIteration && (
+                        <p className="text-muted-foreground">🔄 {project.defaultIteration}</p>
+                      )}
+                      {project.defaultState && (
+                        <p className="text-muted-foreground">📊 {project.defaultState}</p>
+                      )}
+                    </div>
+                  ) : null;
+                })()}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowAzureProjectDialog(false);
+                setSelectedAzureProject("");
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleConfirmAzureExport}
+              disabled={!selectedAzureProject || exportAzureMutation.isPending}
+            >
+              {exportAzureMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Exportando...
+                </>
+              ) : (
+                "Exportar"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Refine Dialog */}
+      {showRefineDialog && (
+        <Dialog open={showRefineDialog} onOpenChange={setShowRefineDialog}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Refinar Feature com IA</DialogTitle>
+              <DialogDescription>
+                Descreva como você gostaria de refinar esta feature
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="refinement-prompt">Prompt de Refinamento</Label>
+                <Textarea
+                  id="refinement-prompt"
+                  value={refinementPrompt}
+                  onChange={(e) => setRefinementPrompt(e.target.value)}
+                  placeholder="Ex: Adicione mais detalhes técnicos, inclua casos de erro..."
+                  className="min-h-[120px] bg-white/5 border-white/10"
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowRefineDialog(false);
+                  setRefinementPrompt("");
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleRefine}
+                disabled={refineMutation.isPending || !refinementPrompt.trim()}
+              >
+                {refineMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Refinando...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    Refinar
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Edit Story Dialog */}
+      {editingStory && (
+        <EditStoryDialog
+          story={editingStory}
+          open={!!editingStory}
+          onOpenChange={(open) => !open && setEditingStory(null)}
+          onSave={(data) => handleSaveStory(editingStory.id, data)}
+        />
+      )}
 
       {/* Upgrade Modal */}
       <UpgradeModal

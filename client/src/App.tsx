@@ -10,7 +10,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 
 import JiraConfig from "./pages/JiraConfig";
-import AzureDevOpsConfig from "./pages/AzureDevOpsConfig";
+import AzureDevOpsConfigNew from "./pages/AzureDevOpsConfigNew";
 import LLMConfig from "./pages/LLMConfig";
 import GenerateFeature from "./pages/GenerateFeature";
 import FeatureDetail from "./pages/FeatureDetail";
@@ -60,7 +60,7 @@ function Router() {
 
       <Route path={"/config/azure-devops"}>
         <DashboardLayout>
-          <AzureDevOpsConfig />
+          <AzureDevOpsConfigNew />
         </DashboardLayout>
       </Route>
 
