@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { GlassCard } from "@/components/GlassCard";
 import { trpc } from "@/lib/trpc";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Loader2, Eye, EyeOff, Plus, Trash2, Edit2, Save, X } from "lucide-react";
 import {
@@ -44,12 +44,12 @@ export default function AzureDevOpsConfigNew() {
   const [editDefaultState, setEditDefaultState] = useState("");
 
   // Carregar dados quando disponíveis
-  useState(() => {
+  useEffect(() => {
     if (fullConfig?.credentials) {
       setOrganization(fullConfig.credentials.organization || "");
       setPat(fullConfig.credentials.pat || "");
     }
-  });
+  }, [fullConfig]);
 
   const handleSaveCredentials = async () => {
     if (!organization || !pat) {
