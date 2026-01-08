@@ -60,7 +60,7 @@ export const couponsRouter = router({
    * Aplicar cupom no checkout
    * Usado internamente ao criar assinatura
    */
-  apply: protectedProcedure
+  applyCoupon: protectedProcedure
     .input(
       z.object({
         couponId: z.number(),
