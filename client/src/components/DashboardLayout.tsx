@@ -48,7 +48,7 @@ const menuItems = [
   { icon: Zap, label: "Planos", path: "/pricing" },
   { icon: CreditCard, label: "Assinatura", path: "/account/subscription" },
   { icon: Brain, label: "Config. LLM", path: "/config/llm" },
-  { icon: GitBranch, label: "Config. Jira", path: "/config/jira" },
+  // { icon: GitBranch, label: "Config. Jira", path: "/config/jira" }, // Oculto temporariamente
   { icon: Cloud, label: "Config. Azure DevOps", path: "/config/azure-devops" },
 ];
 
