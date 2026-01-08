@@ -32,7 +32,6 @@ export default function AzureDevOpsConfigNew() {
   // Estados - Novo Projeto
   const [isAddingProject, setIsAddingProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
-  const [newProjectKey, setNewProjectKey] = useState("");
   const [newDefaultArea, setNewDefaultArea] = useState("");
   const [newDefaultIteration, setNewDefaultIteration] = useState("");
   const [newDefaultState, setNewDefaultState] = useState("");
@@ -40,7 +39,6 @@ export default function AzureDevOpsConfigNew() {
   // Estados - Editar Projeto
   const [editingProjectId, setEditingProjectId] = useState<number | null>(null);
   const [editProjectName, setEditProjectName] = useState("");
-  const [editProjectKey, setEditProjectKey] = useState("");
   const [editDefaultArea, setEditDefaultArea] = useState("");
   const [editDefaultIteration, setEditDefaultIteration] = useState("");
   const [editDefaultState, setEditDefaultState] = useState("");
@@ -72,15 +70,14 @@ export default function AzureDevOpsConfigNew() {
   };
 
   const handleAddProject = async () => {
-    if (!newProjectName || !newProjectKey) {
-      toast.error("Preencha nome e chave do projeto");
+    if (!newProjectName) {
+      toast.error("Preencha o nome do projeto");
       return;
     }
 
     try {
       await createProjectMutation.mutateAsync({
         name: newProjectName,
-        projectKey: newProjectKey,
         defaultArea: newDefaultArea || undefined,
         defaultIteration: newDefaultIteration || undefined,
         defaultState: newDefaultState || undefined,
@@ -89,7 +86,6 @@ export default function AzureDevOpsConfigNew() {
       toast.success("Projeto adicionado com sucesso!");
       setIsAddingProject(false);
       setNewProjectName("");
-      setNewProjectKey("");
       setNewDefaultArea("");
       setNewDefaultIteration("");
       setNewDefaultState("");
@@ -102,7 +98,6 @@ export default function AzureDevOpsConfigNew() {
   const handleEditProject = (project: any) => {
     setEditingProjectId(project.id);
     setEditProjectName(project.name);
-    setEditProjectKey(project.projectKey);
     setEditDefaultArea(project.defaultArea || "");
     setEditDefaultIteration(project.defaultIteration || "");
     setEditDefaultState(project.defaultState || "");
@@ -115,7 +110,6 @@ export default function AzureDevOpsConfigNew() {
       await updateProjectMutation.mutateAsync({
         id: editingProjectId,
         name: editProjectName,
-        projectKey: editProjectKey,
         defaultArea: editDefaultArea || undefined,
         defaultIteration: editDefaultIteration || undefined,
         defaultState: editDefaultState || undefined,
@@ -272,20 +266,12 @@ export default function AzureDevOpsConfigNew() {
                       id="newName"
                       value={newProjectName}
                       onChange={e => setNewProjectName(e.target.value)}
-                      placeholder="Frontend, Backend, Mobile..."
+                      placeholder="Nome do projeto no Azure DevOps"
                       className="bg-white/5 border-white/10"
                     />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="newKey">Chave do Projeto *</Label>
-                    <Input
-                      id="newKey"
-                      value={newProjectKey}
-                      onChange={e => setNewProjectKey(e.target.value)}
-                      placeholder="FRONT, BACK, MOB..."
-                      className="bg-white/5 border-white/10"
-                    />
+                    <p className="text-xs text-muted-foreground">
+                      Use o nome exato do projeto conforme está no Azure DevOps
+                    </p>
                   </div>
 
                   <div className="space-y-2">
@@ -358,23 +344,14 @@ export default function AzureDevOpsConfigNew() {
                   {editingProjectId === project.id ? (
                     // Modo de Edição
                     <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label className="text-xs">Nome</Label>
-                          <Input
-                            value={editProjectName}
-                            onChange={e => setEditProjectName(e.target.value)}
-                            className="bg-white/5 border-white/10 h-8"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs">Chave</Label>
-                          <Input
-                            value={editProjectKey}
-                            onChange={e => setEditProjectKey(e.target.value)}
-                            className="bg-white/5 border-white/10 h-8"
-                          />
-                        </div>
+                      <div>
+                        <Label className="text-xs">Nome do Projeto</Label>
+                        <Input
+                          value={editProjectName}
+                          onChange={e => setEditProjectName(e.target.value)}
+                          className="bg-white/5 border-white/10 h-9"
+                          placeholder="Nome do projeto no Azure DevOps"
+                        />
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <div>
@@ -430,12 +407,7 @@ export default function AzureDevOpsConfigNew() {
                     // Modo de Visualização
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold">{project.name}</h3>
-                          <span className="text-xs px-2 py-0.5 rounded bg-primary/20 text-primary">
-                            {project.projectKey}
-                          </span>
-                        </div>
+                        <h3 className="font-semibold text-lg">{project.name}</h3>
                         <div className="mt-2 text-sm text-muted-foreground space-y-1">
                           {project.defaultArea && (
                             <div>📍 Área: {project.defaultArea}</div>
