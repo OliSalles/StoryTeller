@@ -23,8 +23,7 @@ export type InsertAzureDevOpsCredentials = typeof azureDevOpsCredentials.$inferI
 export const azureDevOpsProjects = pgTable("azure_devops_projects", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
-  name: varchar("name", { length: 256 }).notNull(), // Nome amigável do projeto
-  projectKey: varchar("project_key", { length: 256 }).notNull(), // Nome do projeto no Azure
+  name: varchar("name", { length: 256 }).notNull(), // Nome do projeto no Azure DevOps
   
   // Configurações padrão (opcionais)
   defaultArea: varchar("default_area", { length: 256 }),

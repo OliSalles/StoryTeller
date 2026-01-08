@@ -53,7 +53,6 @@ export const azureDevOpsImprovedRouter = router({
       .input(
         z.object({
           name: z.string().min(1, "Nome é obrigatório"),
-          projectKey: z.string().min(1, "Chave do projeto é obrigatória"),
           defaultArea: z.string().optional(),
           defaultIteration: z.string().optional(),
           defaultState: z.string().optional(),
@@ -75,7 +74,6 @@ export const azureDevOpsImprovedRouter = router({
         z.object({
           id: z.number(),
           name: z.string().optional(),
-          projectKey: z.string().optional(),
           defaultArea: z.string().optional(),
           defaultIteration: z.string().optional(),
           defaultState: z.string().optional(),

@@ -459,12 +459,7 @@ export default function FeatureDetail() {
                 <SelectContent>
                   {azureConfig?.projects?.map((project: any) => (
                     <SelectItem key={project.id} value={project.id.toString()}>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{project.name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          ({project.projectKey})
-                        </span>
-                      </div>
+                      <span className="font-medium">{project.name}</span>
                     </SelectItem>
                   ))}
                 </SelectContent>

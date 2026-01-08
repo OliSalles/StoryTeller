@@ -23,7 +23,6 @@ CREATE TABLE IF NOT EXISTS azure_devops_projects (
   id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL,
   name VARCHAR(256) NOT NULL,
-  project_key VARCHAR(256) NOT NULL,
   default_area VARCHAR(256),
   default_iteration VARCHAR(256),
   default_state VARCHAR(128),
@@ -59,15 +58,14 @@ ORDER BY user_id, created_at DESC;
 
 -- Migrar projetos da tabela antiga
 INSERT INTO azure_devops_projects (
-  user_id, name, project_key,
+  user_id, name,
   default_area, default_iteration, default_state,
   default_board, default_column, default_swimlane,
   created_at, updated_at
 )
 SELECT 
   user_id,
-  project as name,  -- Usa o nome do projeto como nome amigável
-  project as project_key,
+  project as name,
   default_area,
   default_iteration,
   default_state,
@@ -80,7 +78,7 @@ FROM azure_devops_configs
 WHERE NOT EXISTS (
   SELECT 1 FROM azure_devops_projects 
   WHERE user_id = azure_devops_configs.user_id 
-  AND project_key = azure_devops_configs.project
+  AND name = azure_devops_configs.project
 );
 
 -- =====================================================
@@ -101,7 +99,6 @@ SELECT
   id,
   user_id,
   name,
-  project_key,
   is_active
 FROM azure_devops_projects
 ORDER BY created_at DESC;
