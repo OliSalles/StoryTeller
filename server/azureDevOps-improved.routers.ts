@@ -13,7 +13,7 @@ export const azureDevOpsImprovedRouter = router({
   credentials: router({
     // Obter credenciais do usuário
     get: protectedProcedure.query(async ({ ctx }) => {
-      return await azureDb.getCredentials(ctx.user.userId);
+      return await azureDb.getCredentials(ctx.user.id);
     }),
     
     // Salvar/Atualizar credenciais
@@ -26,7 +26,7 @@ export const azureDevOpsImprovedRouter = router({
       )
       .mutation(async ({ ctx, input }) => {
         return await azureDb.saveCredentials({
-          userId: ctx.user.userId,
+          userId: ctx.user.id,
           organization: input.organization,
           pat: input.pat,
         });
@@ -38,7 +38,7 @@ export const azureDevOpsImprovedRouter = router({
   projects: router({
     // Listar projetos do usuário
     list: protectedProcedure.query(async ({ ctx }) => {
-      return await azureDb.getProjects(ctx.user.userId);
+      return await azureDb.getProjects(ctx.user.id);
     }),
     
     // Obter projeto específico
@@ -63,7 +63,7 @@ export const azureDevOpsImprovedRouter = router({
       )
       .mutation(async ({ ctx, input }) => {
         return await azureDb.createProject({
-          userId: ctx.user.userId,
+          userId: ctx.user.id,
           ...input,
         });
       }),
@@ -100,7 +100,7 @@ export const azureDevOpsImprovedRouter = router({
   
   // Obter configuração completa (credenciais + projetos)
   getFullConfig: protectedProcedure.query(async ({ ctx }) => {
-    return await azureDb.getFullConfig(ctx.user.userId);
+    return await azureDb.getFullConfig(ctx.user.id);
   }),
 });
 

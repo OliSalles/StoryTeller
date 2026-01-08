@@ -277,6 +277,39 @@ CREATE TABLE IF NOT EXISTS coupon_usage (
 );
 
 -- =====================================================
+-- AZURE DEVOPS - ESTRUTURA MELHORADA
+-- =====================================================
+
+-- Credenciais globais (1 por usuário)
+CREATE TABLE IF NOT EXISTS azure_devops_credentials (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL UNIQUE,
+  organization VARCHAR(256) NOT NULL,
+  pat TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+);
+
+-- Projetos (múltiplos por usuário)
+CREATE TABLE IF NOT EXISTS azure_devops_projects (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  name VARCHAR(256) NOT NULL,
+  default_area VARCHAR(256),
+  default_iteration VARCHAR(256),
+  default_state VARCHAR(128),
+  default_board VARCHAR(256),
+  default_column VARCHAR(128),
+  default_swimlane VARCHAR(128),
+  is_active BOOLEAN DEFAULT true NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+);
+
+-- Adicionar coluna para vincular feature ao projeto
+ALTER TABLE features ADD COLUMN IF NOT EXISTS azure_project_id INTEGER;
+
+-- =====================================================
 -- ÍNDICES PARA PERFORMANCE
 -- =====================================================
 
@@ -284,6 +317,9 @@ CREATE INDEX IF NOT EXISTS idx_coupons_code ON coupons(code);
 CREATE INDEX IF NOT EXISTS idx_coupons_active ON coupons(is_active);
 CREATE INDEX IF NOT EXISTS idx_coupon_usage_user ON coupon_usage(user_id);
 CREATE INDEX IF NOT EXISTS idx_coupon_usage_coupon ON coupon_usage(coupon_id);
+CREATE INDEX IF NOT EXISTS idx_azure_projects_user ON azure_devops_projects(user_id);
+CREATE INDEX IF NOT EXISTS idx_azure_projects_active ON azure_devops_projects(is_active);
+CREATE INDEX IF NOT EXISTS idx_features_azure_project ON features(azure_project_id);
 
 -- =====================================================
 -- DADOS INICIAIS

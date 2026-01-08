@@ -27,3 +27,4 @@ SELECT
 FROM subscription_plans
 ORDER BY price_monthly;
 
+

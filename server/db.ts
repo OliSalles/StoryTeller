@@ -11,6 +11,8 @@ import {
   InsertJiraConfig,
   azureDevOpsConfigs,
   InsertAzureDevOpsConfig,
+  azureDevOpsCredentials,
+  azureDevOpsProjects,
   features,
   InsertFeature,
   userStories,

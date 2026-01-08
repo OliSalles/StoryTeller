@@ -31,10 +31,18 @@ export async function saveCredentials(data: InsertAzureDevOpsCredentials) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   
+  // Validação explícita
+  if (!data.userId) {
+    throw new Error("userId is required");
+  }
+  
+  console.log("[Azure DevOps] Saving credentials for userId:", data.userId);
+  
   const existing = await getCredentials(data.userId);
   
   if (existing) {
     // Atualizar credenciais existentes
+    console.log("[Azure DevOps] Updating existing credentials");
     await db
       .update(azureDevOpsCredentials)
       .set({
@@ -46,8 +54,13 @@ export async function saveCredentials(data: InsertAzureDevOpsCredentials) {
     
     return await getCredentials(data.userId);
   } else {
-    // Criar novas credenciais
-    await db.insert(azureDevOpsCredentials).values(data);
+    // Criar novas credenciais com valores explícitos
+    console.log("[Azure DevOps] Creating new credentials");
+    await db.insert(azureDevOpsCredentials).values({
+      userId: data.userId,
+      organization: data.organization,
+      pat: data.pat,
+    });
     return await getCredentials(data.userId);
   }
 }
@@ -141,4 +154,5 @@ export async function getFullConfig(userId: number) {
     projects,
   };
 }
+
 
