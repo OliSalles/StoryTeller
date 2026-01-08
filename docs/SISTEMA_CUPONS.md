@@ -392,3 +392,4 @@ DELETE FROM coupons WHERE code = 'CODIGO_DUPLICADO';
 
 Agora você pode criar cupons diretamente no banco de dados e eles estarão disponíveis para uso imediatamente!
 
+

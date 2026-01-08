@@ -83,3 +83,4 @@ export const couponUsage = pgTable("coupon_usage", {
 export type CouponUsage = typeof couponUsage.$inferSelect;
 export type InsertCouponUsage = typeof couponUsage.$inferInsert;
 
+

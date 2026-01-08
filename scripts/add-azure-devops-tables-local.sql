@@ -50,3 +50,4 @@ FROM azure_devops_projects;
 -- Sucesso!
 \echo '✅ Tabelas do Azure DevOps criadas com sucesso!'
 
+

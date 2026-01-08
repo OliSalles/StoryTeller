@@ -52,3 +52,4 @@ ON CONFLICT (code) DO NOTHING;
 -- Ver cupons criados
 SELECT * FROM coupons ORDER BY created_at;
 
+

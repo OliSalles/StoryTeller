@@ -293,3 +293,4 @@ Deve estar configurado no Stripe Dashboard.
 **Após completar todos os passos, está em produção! 🎉**
 
 Qualquer dúvida ou erro, me avise!
+
