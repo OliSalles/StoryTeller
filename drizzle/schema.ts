@@ -288,3 +288,8 @@ export const payments = pgTable("payments", {
 
 export type Payment = typeof payments.$inferSelect;
 export type InsertPayment = typeof payments.$inferInsert;
+
+// ============================================
+// Azure DevOps - Estrutura Melhorada
+// ============================================
+export * from "./schema-azure-improved";
