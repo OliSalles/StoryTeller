@@ -1,4 +1,4 @@
-import { eq, and, desc, gte } from "drizzle-orm";
+import { eq, and, or, desc, gte } from "drizzle-orm";
 import {
   subscriptionPlans,
   subscriptions,
@@ -43,7 +43,10 @@ export async function getActiveSubscription(userId: number) {
     .where(
       and(
         eq(subscriptions.userId, userId),
-        eq(subscriptions.status, "active")
+        or(
+          eq(subscriptions.status, "active"),
+          eq(subscriptions.status, "trialing")
+        )
       )
     )
     .orderBy(desc(subscriptions.createdAt))
