@@ -25,6 +25,7 @@ import {
   InsertExecutionLog,
   tokenUsage,
   InsertTokenUsage,
+  passwordResetTokens,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -569,4 +570,81 @@ export async function getTokenUsageSinceDate(userId: number, startDate: Date) {
   const filtered = results.filter(r => r.createdAt && r.createdAt >= startDate);
   
   return filtered.reduce((sum, r) => sum + r.totalTokens, 0);
+}
+
+// ============================================
+// Password Reset Functions
+// ============================================
+
+// Criar token de reset de senha
+export async function createPasswordResetToken(userId: number, token: string, expiresAt: Date) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const result = await db
+    .insert(passwordResetTokens)
+    .values({ userId, token, expiresAt })
+    .returning();
+  
+  return result[0];
+}
+
+// Buscar token de reset válido
+export async function getPasswordResetToken(token: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const now = new Date();
+  const result = await db
+    .select()
+    .from(passwordResetTokens)
+    .where(
+      and(
+        eq(passwordResetTokens.token, token),
+        eq(passwordResetTokens.used, false)
+      )
+    )
+    .limit(1);
+  
+  if (result.length === 0) return null;
+  
+  const resetToken = result[0];
+  
+  // Verificar se expirou
+  if (resetToken.expiresAt < now) return null;
+  
+  return resetToken;
+}
+
+// Marcar token como usado
+export async function markPasswordResetTokenAsUsed(tokenId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  await db
+    .update(passwordResetTokens)
+    .set({ used: true })
+    .where(eq(passwordResetTokens.id, tokenId));
+}
+
+// Invalidar todos os tokens de reset de um usuário
+export async function invalidateUserPasswordResetTokens(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  await db
+    .update(passwordResetTokens)
+    .set({ used: true })
+    .where(eq(passwordResetTokens.userId, userId));
+}
+
+// Atualizar senha do usuário
+export async function updateUserPassword(userId: number, hashedPassword: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  await db
+    .update(users)
+    .set({ password: hashedPassword, updatedAt: new Date() })
+    .where(eq(users.id, userId));
 }

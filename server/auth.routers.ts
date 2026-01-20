@@ -7,6 +7,7 @@ import { publicProcedure, router } from "./_core/trpc";
 import * as db from "./db";
 import { users } from "../drizzle/schema";
 import { ENV } from "./_core/env";
+import crypto from "crypto";
 
 const JWT_SECRET = new TextEncoder().encode(ENV.cookieSecret);
 
@@ -113,6 +114,92 @@ export const authRouter = router({
       return {
         success: true,
         message: "Login realizado com sucesso",
+      };
+    }),
+
+  // Solicitar reset de senha
+  requestPasswordReset: publicProcedure
+    .input(
+      z.object({
+        email: z.string().email("Email inválido"),
+      })
+    )
+    .mutation(async ({ input }) => {
+      // Buscar usuário
+      const user = await db.getUserByEmail(input.email);
+      
+      // Por segurança, sempre retornar sucesso mesmo se o email não existir
+      // Isso evita que atacantes descubram quais emails estão cadastrados
+      if (!user) {
+        return {
+          success: true,
+          message: "Se o email existir, você receberá instruções para resetar sua senha",
+        };
+      }
+
+      // Gerar token único e seguro
+      const token = crypto.randomBytes(32).toString("hex");
+      
+      // Token expira em 1 hora
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + 1);
+
+      // Invalidar tokens anteriores do usuário
+      await db.invalidateUserPasswordResetTokens(user.id);
+
+      // Criar novo token
+      await db.createPasswordResetToken(user.id, token, expiresAt);
+
+      // TODO: Enviar email com o link de reset
+      // Por enquanto, vamos retornar o link no ambiente de desenvolvimento
+      const resetLink = `${ENV.appUrl}/reset-password?token=${token}`;
+      
+      console.log("\n🔐 [PASSWORD RESET] Link gerado:");
+      console.log(`   Email: ${user.email}`);
+      console.log(`   Link: ${resetLink}`);
+      console.log(`   Expira em: ${expiresAt.toLocaleString()}\n`);
+
+      return {
+        success: true,
+        message: "Se o email existir, você receberá instruções para resetar sua senha",
+        // Em desenvolvimento, retornar o link
+        ...(ENV.nodeEnv === "development" && { resetLink }),
+      };
+    }),
+
+  // Resetar senha com token
+  resetPassword: publicProcedure
+    .input(
+      z.object({
+        token: z.string().min(1, "Token é obrigatório"),
+        newPassword: z.string().min(6, "Senha deve ter no mínimo 6 caracteres"),
+      })
+    )
+    .mutation(async ({ input }) => {
+      // Buscar token válido
+      const resetToken = await db.getPasswordResetToken(input.token);
+      
+      if (!resetToken) {
+        throw new Error("Token inválido ou expirado");
+      }
+
+      // Hash da nova senha
+      const hashedPassword = await bcrypt.hash(input.newPassword, 10);
+
+      // Atualizar senha do usuário
+      await db.updateUserPassword(resetToken.userId, hashedPassword);
+
+      // Marcar token como usado
+      await db.markPasswordResetTokenAsUsed(resetToken.id);
+
+      // Invalidar outros tokens do usuário
+      await db.invalidateUserPasswordResetTokens(resetToken.userId);
+
+      console.log(`✅ [PASSWORD RESET] Senha resetada para userId: ${resetToken.userId}`);
+
+      return {
+        success: true,
+        message: "Senha resetada com sucesso! Você já pode fazer login com a nova senha.",
       };
     }),
 });

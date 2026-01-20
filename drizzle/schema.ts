@@ -293,3 +293,13 @@ export type InsertPayment = typeof payments.$inferInsert;
 // Azure DevOps - Estrutura Melhorada
 // ============================================
 export * from "./schema-azure-improved";
+
+// ============================================
+// Coupons
+// ============================================
+export * from "./schema-coupons";
+
+// ============================================
+// Password Reset
+// ============================================
+export * from "./schema-password-reset";
