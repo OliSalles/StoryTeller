@@ -38,11 +38,14 @@ export default function ForgotPassword() {
     setError("");
     setSuccess(false);
 
+    console.log("📧 [FORGOT PASSWORD] Email no state:", email);
+
     if (!email) {
       setError("Digite seu email");
       return;
     }
 
+    console.log("📧 [FORGOT PASSWORD] Enviando requisição para:", email);
     requestResetMutation.mutate({ email });
   };
 

@@ -1,9 +1,0 @@
-{
-  "query": "UPDATE execution_logs SET status = 'error', end_time = NOW(), error_message = 'Execution aborted - timeout or manual cancellation' WHERE status = 'processing'",
-  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user V22mdELEt8WxYWD.c9cf6d5eba9c --database HUntQsx8BjuPDjNs8cJdwo --execute UPDATE execution_logs SET status = 'error', end_time = NOW(), error_message = 'Execution aborted - timeout or manual cancellation' WHERE status = 'processing'",
-  "rows": [],
-  "messages": [],
-  "stdout": "",
-  "stderr": "",
-  "execution_time_ms": 55
-}
