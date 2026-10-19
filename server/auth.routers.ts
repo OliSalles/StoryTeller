@@ -8,6 +8,7 @@ import * as db from "./db";
 import { users } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 import crypto from "crypto";
+import sgMail from "@sendgrid/mail";
 
 const JWT_SECRET = new TextEncoder().encode(ENV.cookieSecret);
 
@@ -151,13 +152,33 @@ export const authRouter = router({
       await db.createPasswordResetToken(user.id, token, expiresAt);
 
       // TODO: Enviar email com o link de reset
-      // Por enquanto, vamos retornar o link no ambiente de desenvolvimento
       const resetLink = `${ENV.appUrl}/reset-password?token=${token}`;
-      
+
+      // Log sempre (útil em dev)
       console.log("\n🔐 [PASSWORD RESET] Link gerado:");
       console.log(`   Email: ${user.email}`);
       console.log(`   Link: ${resetLink}`);
       console.log(`   Expira em: ${expiresAt.toLocaleString()}\n`);
+
+      // Se SendGrid configurado, enviar e-mail
+      if (ENV.sendgridApiKey && ENV.mailFrom) {
+        try {
+          sgMail.setApiKey(ENV.sendgridApiKey);
+          const msg = {
+            to: user.email,
+            from: ENV.mailFrom,
+            subject: "Reset de senha - Story Teller",
+            text: `Você solicitou resetar sua senha. Acesse este link para criar uma nova senha (expira em ${expiresAt.toLocaleString()}): ${resetLink}`,
+            html: `<p>Você solicitou resetar sua senha. Clique no link abaixo para criar uma nova senha (expira em ${expiresAt.toLocaleString()}):</p><p><a href="${resetLink}">${resetLink}</a></p>`,
+          };
+          await sgMail.send(msg);
+          console.log(`[PASSWORD RESET] Email enviado para ${user.email}`);
+        } catch (err) {
+          console.error("[PASSWORD RESET] Falha ao enviar email:", err);
+        }
+      } else {
+        console.log("[PASSWORD RESET] SendGrid não configurado, apenas exibindo link no console.");
+      }
 
       return {
         success: true,

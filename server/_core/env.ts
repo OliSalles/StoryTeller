@@ -11,4 +11,7 @@ export const ENV = {
   stripePublishableKey: process.env.STRIPE_PUBLISHABLE_KEY,
   stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
   appUrl: process.env.APP_URL ?? "http://localhost:5173",
+  // Email / SendGrid
+  sendgridApiKey: process.env.SENDGRID_API_KEY ?? "",
+  mailFrom: process.env.MAIL_FROM ?? "",
 };
