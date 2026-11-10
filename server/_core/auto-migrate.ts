@@ -98,17 +98,6 @@ async function tableExists(tableName: string): Promise<boolean> {
  */
 async function runKnowledgeBaseMigration(): Promise<MigrationResult> {
   try {
-    // Check if migration already applied
-    const companiesExists = await tableExists('companies');
-    
-    if (companiesExists) {
-      console.log('[Auto-Migrate] ℹ️  Knowledge base tables already exist, skipping migration');
-      return {
-        success: true,
-        message: 'Migration already applied'
-      };
-    }
-
     console.log('[Auto-Migrate] 🔄 Running knowledge base migration...');
 
     // Read migration file
@@ -186,12 +175,15 @@ async function runKnowledgeBaseMigration(): Promise<MigrationResult> {
         await db.execute(sql.raw(statement));
         executed++;
       } catch (error: any) {
+        // Drizzle wraps pg errors in err.cause
+        const pgError = (error as any).cause || error;
+        
         // Ignore "already exists" errors (idempotent)
         const isAlreadyExists = 
-          error.code === '42710' || // duplicate_object (TYPE)
-          error.code === '42P07' || // duplicate_table
-          error.code === '42710' || // duplicate_function
-          error.message?.includes('already exists');
+          pgError.code === '42710' || // duplicate_object (TYPE, FUNCTION)
+          pgError.code === '42P07' || // duplicate_table
+          pgError.code === '42P06' || // duplicate_schema
+          pgError.message?.includes('already exists');
         
         if (isAlreadyExists) {
           skipped++;
@@ -201,10 +193,11 @@ async function runKnowledgeBaseMigration(): Promise<MigrationResult> {
         // Log detailed error for unexpected failures
         console.error(`[Auto-Migrate] ❌ Statement ${i + 1} failed:`, {
           statement: statement.substring(0, 200) + '...',
-          code: error.code,
-          message: error.message,
-          detail: error.detail,
-          hint: error.hint,
+          code: pgError.code,
+          message: pgError.message,
+          detail: pgError.detail,
+          hint: pgError.hint,
+          position: pgError.position,
         });
         
         return {
