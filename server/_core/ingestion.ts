@@ -7,7 +7,7 @@ import OpenAI from "openai";
 import { ENV } from "./env";
 import * as knowledgeDb from "../knowledge-db";
 import { getGlobalLlmConfig } from "../db";
-import { unzip } from "unzipper";
+import unzipper from "unzipper";
 import { createReadStream } from "fs";
 import { readFile } from "fs/promises";
 import path from "path";
@@ -77,7 +77,7 @@ export async function ingestCodeZip(
   const files: Array<{ path: string; content: string }> = [];
   
   // Extract files from ZIP
-  const directory = await unzip.Open.file(zipPath);
+  const directory = await unzipper.Open.file(zipPath);
   
   for (const file of directory.files) {
     // Skip directories and non-text files
