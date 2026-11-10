@@ -269,7 +269,9 @@ $$ LANGUAGE plpgsql;
 DO $$
 DECLARE
   user_record RECORD;
-  company_id INTEGER;
+  v_company_id INTEGER;
+  v_company_name TEXT;
+  v_company_slug TEXT;
 BEGIN
   FOR user_record IN 
     SELECT u.id, u.email, u.name 
@@ -278,22 +280,29 @@ BEGIN
       SELECT 1 FROM company_members cm WHERE cm.user_id = u.id
     )
   LOOP
-    -- Create a personal company for this user
-    INSERT INTO companies (name, slug, owner_id)
-    VALUES (
-      user_record.name || ' - Pessoal',
-      'personal-' || user_record.id,
-      user_record.id
-    )
-    RETURNING id INTO company_id;
+    -- Build company name (handle NULL name)
+    v_company_name := COALESCE(user_record.name, user_record.email, 'Usuário') || ' - Pessoal';
+    v_company_slug := 'personal-' || user_record.id;
     
-    -- Add user as owner of their company
-    INSERT INTO company_members (company_id, user_id, role)
-    VALUES (company_id, user_record.id, 'owner');
+    -- Check if slug already exists (idempotent)
+    SELECT id INTO v_company_id 
+    FROM companies 
+    WHERE slug = v_company_slug;
     
-    -- Update existing features to belong to this company
+    IF v_company_id IS NULL THEN
+      -- Create a personal company for this user
+      INSERT INTO companies (name, slug, owner_id)
+      VALUES (v_company_name, v_company_slug, user_record.id)
+      RETURNING id INTO v_company_id;
+      
+      -- Add user as owner of their company
+      INSERT INTO company_members (company_id, user_id, role)
+      VALUES (v_company_id, user_record.id, 'owner');
+    END IF;
+    
+    -- Update existing features to belong to this company (idempotent)
     UPDATE features 
-    SET company_id = company_id 
+    SET company_id = v_company_id 
     WHERE user_id = user_record.id AND company_id IS NULL;
   END LOOP;
 END $$;
