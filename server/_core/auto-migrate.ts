@@ -8,6 +8,11 @@ import { getDb } from '../db';
 import { sql } from 'drizzle-orm';
 import { readFile } from 'fs/promises';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+// ESM equivalent of __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 interface MigrationResult {
   success: boolean;
@@ -108,7 +113,10 @@ async function runKnowledgeBaseMigration(): Promise<MigrationResult> {
 
     // Read migration file
     const migrationPath = path.join(__dirname, '../../drizzle/migrations/001_add_knowledge_base_and_multitenant.sql');
+    console.log(`[Auto-Migrate] Migration file path: ${migrationPath}`);
+    
     const migrationSQL = await readFile(migrationPath, 'utf-8');
+    console.log(`[Auto-Migrate] Migration SQL loaded (${migrationSQL.length} bytes)`);
 
     // Split by semicolon and execute each statement
     const statements = migrationSQL
