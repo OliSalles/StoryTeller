@@ -118,13 +118,28 @@ export function StoryAnalysisPanel({ storyId, title, description, onAnalysisComp
                 <ScrollArea className="h-[300px]">
                   <div className="space-y-3 pr-4">
                     {analyzeStory.data.similarities.map((sim: any, idx: number) => (
-                      <Card key={idx} className="p-4">
+                      <Card key={idx} className={`p-4 ${sim.isCrossTeam ? 'border-blue-500 border-2' : ''}`}>
                         <div className="space-y-3">
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
+                              <div className="flex items-center gap-2 mb-1 flex-wrap">
                                 {getStatusBadge(sim.type)}
                                 <Badge variant="outline">{sim.similarityScore}% similar</Badge>
+                                {sim.confidence && (
+                                  <Badge variant={
+                                    sim.confidence === 'high' ? 'default' : 
+                                    sim.confidence === 'medium' ? 'secondary' : 'outline'
+                                  }>
+                                    {sim.confidence === 'high' ? 'Alta confiança' :
+                                     sim.confidence === 'medium' ? 'Média confiança' : 'Baixa confiança'}
+                                  </Badge>
+                                )}
+                                {sim.isCrossTeam && (
+                                  <Badge variant="outline" className="border-blue-500 text-blue-500">
+                                    <GitMerge className="h-3 w-3 mr-1" />
+                                    Outro Time
+                                  </Badge>
+                                )}
                               </div>
                               <h5 className="font-semibold">{sim.sourceName}</h5>
                               {sim.relatedTeamId && (
@@ -165,6 +180,20 @@ export function StoryAnalysisPanel({ storyId, title, description, onAnalysisComp
                               <AlertDescription>
                                 <strong>Ação Recomendada:</strong> Alinhe com o time responsável para evitar 
                                 conflitos ou duplicação de esforços.
+                                {sim.isCrossTeam && (
+                                  <span className="block mt-1 text-blue-600 font-semibold">
+                                    ⚠️ Este item pertence a outro time - comunicação é essencial!
+                                  </span>
+                                )}
+                              </AlertDescription>
+                            </Alert>
+                          )}
+                          
+                          {sim.isCrossTeam && sim.type !== 'convergent' && (
+                            <Alert className="text-xs border-blue-500">
+                              <AlertDescription>
+                                <strong>Cross-Team:</strong> Este item pertence a outro time. Considere coordenar 
+                                para garantir compatibilidade e evitar duplicação de trabalho.
                               </AlertDescription>
                             </Alert>
                           )}

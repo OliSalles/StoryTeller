@@ -47,13 +47,11 @@ Times dentro de uma empresa para:
 
 #### 2. Documentos
 
-**Formatos suportados (MVP):**
+**Formatos suportados:**
 - `.txt` - Texto simples
 - `.md` - Markdown
-
-**Formatos futuros:**
-- `.pdf` - Requer `pdf-parse`
-- `.docx` - Requer `mammoth`
+- `.pdf` - PDF (usando `pdf-parse`)
+- `.docx` - Microsoft Word (usando `mammoth`)
 
 #### 3. User Stories Existentes
 
@@ -139,19 +137,52 @@ const { response, citations } = await trpc.knowledgeChat.sendMessage.mutate({
 ### Tipos de Similaridade
 
 #### 1. **DUPLICATE** (Duplicata)
-- Similaridade > 85%
+- Similaridade > 85% (padrão, configurável)
 - Story essencialmente idêntica
 - **Ação**: Evitar duplicação
 
 #### 2. **REUSABLE** (Reutilizável)
-- Similaridade 60-85%
+- Similaridade 60-85% (padrão, configurável)
 - Código/funcionalidade similar existe
 - **Ação**: Reutilizar código existente
 
 #### 3. **CONVERGENT** (Convergente)
-- Similaridade < 60% mas relevante
+- Similaridade 40-60% (padrão, configurável)
 - Sobreposição com outro time/área
 - **Ação**: Alinhar com outro time
+
+#### 4. **NOT RELATED** (Não Relacionado)
+- Similaridade < 40% (padrão, configurável)
+- Automaticamente filtrado e não mostrado
+- **Ação**: Nenhuma - story é independente
+
+### Thresholds Configuráveis por Company
+
+Os thresholds podem ser customizados por empresa na tabela `companies`:
+
+```sql
+UPDATE companies 
+SET 
+  similarity_threshold_duplicate = 90,  -- >90% = duplicate
+  similarity_threshold_reusable = 70,   -- 70-90% = reusable
+  similarity_threshold_minimum = 50     -- <50% = not shown
+WHERE id = 1;
+```
+
+### Detecção Cross-Team
+
+Quando uma similaridade é detectada com item de outro time:
+- 🔵 **Badge "Outro Time"** destacado
+- 🔵 **Borda azul** no card
+- ⚠️ **Alerta específico** para comunicação entre times
+
+### Validação via LLM
+
+Cada match passa por validação da IA para:
+- Confirmar tipo de similaridade (não apenas score de cosseno)
+- Explicar concretamente o que pode ser reaproveitado
+- Avaliar confiança (high/medium/low)
+- Identificar explicitamente items de outros times
 
 ### Exemplo de Análise
 

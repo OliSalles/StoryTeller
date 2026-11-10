@@ -196,40 +196,85 @@ describe('Embedding Generation', () => {
 });
 
 describe('Story Similarity Classification', () => {
+  // Default thresholds
+  const thresholds = {
+    duplicate: 85,
+    reusable: 60,
+    minimum: 40,
+  };
+
   it('should classify high similarity as duplicate', () => {
     const similarityScore = 92;
     
-    // Logic from story-analysis.routers.ts
-    const isDuplicate = similarityScore > 85;
-    const isReusable = similarityScore >= 60 && similarityScore <= 85;
-    const isConvergent = similarityScore < 60;
+    const isDuplicate = similarityScore > thresholds.duplicate;
+    const isReusable = similarityScore >= thresholds.reusable && similarityScore <= thresholds.duplicate;
+    const isConvergent = similarityScore >= thresholds.minimum && similarityScore < thresholds.reusable;
+    const isNotRelated = similarityScore < thresholds.minimum;
 
     expect(isDuplicate).toBe(true);
     expect(isReusable).toBe(false);
     expect(isConvergent).toBe(false);
+    expect(isNotRelated).toBe(false);
   });
 
   it('should classify medium similarity as reusable', () => {
     const similarityScore = 72;
     
-    const isDuplicate = similarityScore > 85;
-    const isReusable = similarityScore >= 60 && similarityScore <= 85;
-    const isConvergent = similarityScore < 60;
+    const isDuplicate = similarityScore > thresholds.duplicate;
+    const isReusable = similarityScore >= thresholds.reusable && similarityScore <= thresholds.duplicate;
+    const isConvergent = similarityScore >= thresholds.minimum && similarityScore < thresholds.reusable;
+    const isNotRelated = similarityScore < thresholds.minimum;
 
     expect(isDuplicate).toBe(false);
     expect(isReusable).toBe(true);
     expect(isConvergent).toBe(false);
+    expect(isNotRelated).toBe(false);
   });
 
   it('should classify low similarity as convergent', () => {
     const similarityScore = 45;
     
-    const isDuplicate = similarityScore > 85;
-    const isReusable = similarityScore >= 60 && similarityScore <= 85;
-    const isConvergent = similarityScore < 60;
+    const isDuplicate = similarityScore > thresholds.duplicate;
+    const isReusable = similarityScore >= thresholds.reusable && similarityScore <= thresholds.duplicate;
+    const isConvergent = similarityScore >= thresholds.minimum && similarityScore < thresholds.reusable;
+    const isNotRelated = similarityScore < thresholds.minimum;
 
     expect(isDuplicate).toBe(false);
     expect(isReusable).toBe(false);
     expect(isConvergent).toBe(true);
+    expect(isNotRelated).toBe(false);
+  });
+
+  it('should filter out not related stories below minimum threshold', () => {
+    const similarityScore = 25;
+    
+    const isDuplicate = similarityScore > thresholds.duplicate;
+    const isReusable = similarityScore >= thresholds.reusable && similarityScore <= thresholds.duplicate;
+    const isConvergent = similarityScore >= thresholds.minimum && similarityScore < thresholds.reusable;
+    const isNotRelated = similarityScore < thresholds.minimum;
+
+    expect(isDuplicate).toBe(false);
+    expect(isReusable).toBe(false);
+    expect(isConvergent).toBe(false);
+    expect(isNotRelated).toBe(true); // Should be filtered out
+  });
+
+  it('should support configurable thresholds per company', () => {
+    // Custom company thresholds
+    const customThresholds = {
+      duplicate: 90,
+      reusable: 70,
+      minimum: 50,
+    };
+
+    const similarityScore = 75;
+    
+    const isDuplicate = similarityScore > customThresholds.duplicate;
+    const isReusable = similarityScore >= customThresholds.reusable && similarityScore <= customThresholds.duplicate;
+    const isConvergent = similarityScore >= customThresholds.minimum && similarityScore < customThresholds.reusable;
+
+    expect(isDuplicate).toBe(false);
+    expect(isReusable).toBe(true); // 75 is in 70-90 range
+    expect(isConvergent).toBe(false);
   });
 });

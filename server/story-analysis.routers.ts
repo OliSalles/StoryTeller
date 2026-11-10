@@ -20,6 +20,16 @@ export const storyAnalysisRouter = router({
     .mutation(async ({ ctx, input }) => {
       console.log(`[Story Analysis] Analyzing story: ${input.title}`);
       
+      // Get company thresholds
+      const company = await knowledgeDb.getCompanyById(ctx.tenant.companyId);
+      const thresholds = {
+        duplicate: company?.similarityThresholdDuplicate || 85,
+        reusable: company?.similarityThresholdReusable || 60,
+        minimum: company?.similarityThresholdMinimum || 40,
+      };
+      
+      console.log(`[Story Analysis] Using thresholds: duplicate=${thresholds.duplicate}%, reusable=${thresholds.reusable}%, minimum=${thresholds.minimum}%`);
+      
       // Create combined text for embedding
       const storyText = `${input.title}\n\n${input.description}`;
       
@@ -27,11 +37,12 @@ export const storyAnalysisRouter = router({
       const embedding = await generateEmbedding(storyText);
       
       // Search for similar content in knowledge base
+      // Use minimum threshold converted to 0-1 scale
       const similarChunks = await knowledgeDb.searchSimilarEmbeddings(
         embedding,
         ctx.tenant.companyId,
         10, // Top 10 matches
-        0.6 // 60% similarity threshold
+        thresholds.minimum / 100 // Convert percentage to 0-1 scale
       );
       
       console.log(`[Story Analysis] Found ${similarChunks.length} similar chunks`);
@@ -91,16 +102,24 @@ ITEM EXISTENTE NA BASE DE CONHECIMENTO:
 Fonte: ${source.sourceName}
 ${context}
 
-Classifique a relação como:
-- DUPLICATE: Se for essencialmente a mesma story/feature (>85% similar)
-- REUSABLE: Se existe código/funcionalidade similar que pode ser reutilizada (60-85% similar)
-- CONVERGENT: Se há sobreposição/convergência com outra área/time (<60% similar mas relevante)
+THRESHOLDS CONFIGURADOS PELA EMPRESA:
+- DUPLICATE: >${thresholds.duplicate}% de similaridade
+- REUSABLE: ${thresholds.reusable}%-${thresholds.duplicate}% de similaridade  
+- CONVERGENT: ${thresholds.minimum}%-${thresholds.reusable}% de similaridade
+- Abaixo de ${thresholds.minimum}%: não relacionado (ignorar)
+
+INSTRUÇÕES:
+1. Avalie a similaridade semântica e funcional (não apenas keywords)
+2. Classifique usando os thresholds acima
+3. Se o item está em outro time, MENCIONE EXPLICITAMENTE no explanation
+4. Explique CONCRETAMENTE o que pode ser reaproveitado ou por que é duplicata
 
 Responda em JSON:
 {
   "type": "duplicate" | "reusable" | "convergent",
   "similarityScore": 0-100,
-  "explanation": "Explicação breve e objetiva em português brasileiro sobre a similaridade e o que pode ser reaproveitado. Use 'para' (não 'pra') e evite travessões."
+  "explanation": "Explicação breve e objetiva em português brasileiro sobre a similaridade e o que pode ser reaproveitado. Use 'para' (não 'pra') e evite travessões. Se for outro time, mencione isso claramente.",
+  "confidence": "high" | "medium" | "low"
 }`;
         
         try {
@@ -130,8 +149,12 @@ Responda em JSON:
                     explanation: {
                       type: 'string',
                     },
+                    confidence: {
+                      type: 'string',
+                      enum: ['high', 'medium', 'low'],
+                    },
                   },
-                  required: ['type', 'similarityScore', 'explanation'],
+                  required: ['type', 'similarityScore', 'explanation', 'confidence'],
                   additionalProperties: false,
                 },
               },
@@ -141,13 +164,24 @@ Responda em JSON:
           const content = llmResponse.choices[0]?.message?.content;
           const analysis = typeof content === 'string' ? JSON.parse(content) : content;
           
+          // Validate that similarity score meets minimum threshold
+          if (analysis.similarityScore < thresholds.minimum) {
+            console.log(`[Story Analysis] Skipping source ${source.sourceId} - below minimum threshold (${analysis.similarityScore}% < ${thresholds.minimum}%)`);
+            continue; // Skip items below minimum threshold
+          }
+          
+          // Get team info for cross-team detection
+          const isFromOtherTeam = teamId && teamId !== (input as any).teamId;
+          
           analyses.push({
             sourceId: source.sourceId,
             sourceName: source.sourceName,
             type: analysis.type,
             similarityScore: analysis.similarityScore,
             explanation: analysis.explanation,
+            confidence: analysis.confidence,
             relatedTeamId: teamId,
+            isCrossTeam: isFromOtherTeam || false,
           });
           
           // Save similarity analysis to database

@@ -20,6 +20,9 @@ CREATE TABLE IF NOT EXISTS companies (
   name VARCHAR(255) NOT NULL,
   slug VARCHAR(255) NOT NULL UNIQUE,
   owner_id INTEGER NOT NULL REFERENCES users(id),
+  similarity_threshold_duplicate INTEGER DEFAULT 85,
+  similarity_threshold_reusable INTEGER DEFAULT 60,
+  similarity_threshold_minimum INTEGER DEFAULT 40,
   created_at TIMESTAMP NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );

@@ -170,7 +170,7 @@ export function KnowledgeBase() {
                 <CardHeader>
                   <CardTitle>Upload de Arquivo</CardTitle>
                   <CardDescription>
-                    Faça upload de código (ZIP) ou documentos (TXT, MD)
+                    Faça upload de código (ZIP) ou documentos (TXT, MD, PDF, DOCX)
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -188,7 +188,7 @@ export function KnowledgeBase() {
                     <Input
                       id="file-upload"
                       type="file"
-                      accept=".zip,.txt,.md"
+                      accept=".zip,.txt,.md,.pdf,.docx"
                       onChange={handleFileSelect}
                     />
                     {selectedFile && (

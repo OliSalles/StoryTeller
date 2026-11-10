@@ -25,6 +25,12 @@ export const companies = pgTable("companies", {
   name: varchar("name", { length: 255 }).notNull(),
   slug: varchar("slug", { length: 255 }).notNull().unique(),
   ownerId: integer("owner_id").notNull().references(() => users.id),
+  
+  // Similarity analysis thresholds (configurable per company)
+  similarityThresholdDuplicate: integer("similarity_threshold_duplicate").default(85), // >85% = duplicate
+  similarityThresholdReusable: integer("similarity_threshold_reusable").default(60), // 60-85% = reusable
+  similarityThresholdMinimum: integer("similarity_threshold_minimum").default(40), // <40% = not related (hidden)
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

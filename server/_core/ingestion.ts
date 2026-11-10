@@ -136,13 +136,24 @@ export async function ingestDocument(
       // Plain text files
       text = await readFile(filePath, 'utf-8');
     } else if (ext === '.pdf') {
-      // PDF files - would need pdf-parse library
-      // For MVP, we'll skip PDF parsing or require manual text extraction
-      throw new Error('PDF parsing not yet implemented. Please convert to TXT or MD.');
+      // PDF files using pdf-parse
+      console.log(`[Ingestion] Parsing PDF: ${fileName}`);
+      const pdfParse = (await import('pdf-parse')).default;
+      const dataBuffer = await readFile(filePath);
+      const pdfData = await pdfParse(dataBuffer);
+      text = pdfData.text;
+      console.log(`[Ingestion] Extracted ${text.length} characters from PDF`);
     } else if (ext === '.docx') {
-      // DOCX files - would need mammoth library
-      // For MVP, we'll skip DOCX parsing or require manual text extraction
-      throw new Error('DOCX parsing not yet implemented. Please convert to TXT or MD.');
+      // DOCX files using mammoth
+      console.log(`[Ingestion] Parsing DOCX: ${fileName}`);
+      const mammoth = await import('mammoth');
+      const result = await mammoth.extractRawText({ path: filePath });
+      text = result.value;
+      console.log(`[Ingestion] Extracted ${text.length} characters from DOCX`);
+      
+      if (result.messages.length > 0) {
+        console.warn(`[Ingestion] DOCX parsing warnings:`, result.messages);
+      }
     } else {
       throw new Error(`Unsupported file type: ${ext}`);
     }
