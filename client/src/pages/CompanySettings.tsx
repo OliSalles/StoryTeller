@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { trpc } from "../lib/trpc";
-import { DashboardLayout } from "../components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -64,8 +63,7 @@ export function CompanySettings() {
   };
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold">Configurações da Empresa</h1>
           <p className="text-muted-foreground">
@@ -238,6 +236,5 @@ export function CompanySettings() {
           </TabsContent>
         </Tabs>
       </div>
-    </DashboardLayout>
   );
 }

@@ -80,7 +80,9 @@ export const storyAnalysisRouter = router({
         type: 'duplicate' | 'reusable' | 'convergent';
         similarityScore: number;
         explanation: string;
+        confidence: 'high' | 'medium' | 'low';
         relatedTeamId?: number;
+        isCrossTeam: boolean;
       }> = [];
       
       for (const source of Object.values(chunksBySource)) {

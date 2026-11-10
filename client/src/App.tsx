@@ -20,9 +20,9 @@ import TokenUsage from "./pages/TokenUsage";
 import Pricing from "./pages/Pricing";
 import AccountSubscription from "./pages/AccountSubscription";
 import SubscriptionSuccess from "./pages/SubscriptionSuccess";
-import CompanySettings from "./pages/CompanySettings";
-import KnowledgeBase from "./pages/KnowledgeBase";
-import KnowledgeChat from "./pages/KnowledgeChat";
+import { CompanySettings } from "./pages/CompanySettings";
+import { KnowledgeBase } from "./pages/KnowledgeBase";
+import { KnowledgeChat } from "./pages/KnowledgeChat";
 
 function Router() {
   return (

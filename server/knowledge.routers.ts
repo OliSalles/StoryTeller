@@ -258,7 +258,7 @@ export const knowledgeRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const { extractBoardId } = await import("../_core/miro-ingestion");
+      const { extractBoardId } = await import("./_core/miro-ingestion");
       
       // Validate Miro URL
       const boardId = extractBoardId(input.boardUrl);

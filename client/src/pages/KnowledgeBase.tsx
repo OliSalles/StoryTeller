@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { trpc } from "../lib/trpc";
-import { DashboardLayout } from "../components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -135,8 +134,7 @@ export function KnowledgeBase() {
   };
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold">Base de Conhecimento</h1>
@@ -359,6 +357,5 @@ export function KnowledgeBase() {
           </TabsContent>
         </Tabs>
       </div>
-    </DashboardLayout>
   );
 }

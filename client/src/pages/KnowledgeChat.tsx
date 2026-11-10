@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from "react";
 import { trpc } from "../lib/trpc";
-import { DashboardLayout } from "../components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -91,8 +90,7 @@ export function KnowledgeChat() {
   };
 
   return (
-    <DashboardLayout>
-      <div className="flex flex-col h-[calc(100vh-8rem)] space-y-4">
+    <div className="flex flex-col h-[calc(100vh-8rem)] space-y-4">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold">Chat com Conhecimento</h1>
@@ -217,6 +215,5 @@ export function KnowledgeChat() {
           </CardContent>
         </Card>
       </div>
-    </DashboardLayout>
   );
 }
