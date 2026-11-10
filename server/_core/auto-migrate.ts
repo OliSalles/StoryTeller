@@ -118,12 +118,6 @@ async function runKnowledgeBaseMigration(): Promise<MigrationResult> {
     const migrationSQL = await readFile(migrationPath, 'utf-8');
     console.log(`[Auto-Migrate] Migration SQL loaded (${migrationSQL.length} bytes)`);
 
-    // Split by semicolon and execute each statement
-    const statements = migrationSQL
-      .split(';')
-      .map(s => s.trim())
-      .filter(s => s.length > 0 && !s.startsWith('--'));
-
     const db = await getDb();
     if (!db) {
       return {
@@ -133,16 +127,95 @@ async function runKnowledgeBaseMigration(): Promise<MigrationResult> {
       };
     }
     
-    for (const statement of statements) {
+    // Split migration into individual statements
+    // Remove comments first
+    const lines = migrationSQL
+      .split('\n')
+      .filter(line => {
+        const trimmed = line.trim();
+        return trimmed.length > 0 && !trimmed.startsWith('--');
+      });
+    
+    const cleanSQL = lines.join('\n');
+    
+    // Smart split: handle $$ blocks (PL/pgSQL) and regular statements
+    const statements: string[] = [];
+    let current = '';
+    let inDollarQuote = false;
+    
+    for (let i = 0; i < cleanSQL.length; i++) {
+      const char = cleanSQL[i];
+      const next = cleanSQL[i + 1];
+      
+      // Check for $$ delimiter
+      if (char === '$' && next === '$') {
+        inDollarQuote = !inDollarQuote;
+        current += '$$';
+        i++; // Skip next $
+        continue;
+      }
+      
+      // Split on semicolon only if not in dollar-quoted block
+      if (char === ';' && !inDollarQuote) {
+        const stmt = current.trim();
+        if (stmt.length > 0) {
+          statements.push(stmt);
+        }
+        current = '';
+        continue;
+      }
+      
+      current += char;
+    }
+    
+    // Add last statement if exists
+    if (current.trim().length > 0) {
+      statements.push(current.trim());
+    }
+    
+    console.log(`[Auto-Migrate] Found ${statements.length} statements to execute`);
+    
+    let executed = 0;
+    let skipped = 0;
+    
+    // Execute each statement individually
+    for (let i = 0; i < statements.length; i++) {
+      const statement = statements[i];
+      
       try {
         await db.execute(sql.raw(statement));
+        executed++;
       } catch (error: any) {
         // Ignore "already exists" errors (idempotent)
-        if (!error.message.includes('already exists')) {
-          throw error;
+        const isAlreadyExists = 
+          error.code === '42710' || // duplicate_object (TYPE)
+          error.code === '42P07' || // duplicate_table
+          error.code === '42710' || // duplicate_function
+          error.message?.includes('already exists');
+        
+        if (isAlreadyExists) {
+          skipped++;
+          continue;
         }
+        
+        // Log detailed error for unexpected failures
+        console.error(`[Auto-Migrate] ❌ Statement ${i + 1} failed:`, {
+          statement: statement.substring(0, 200) + '...',
+          code: error.code,
+          message: error.message,
+          detail: error.detail,
+          hint: error.hint,
+        });
+        
+        return {
+          success: false,
+          message: `Migration failed at statement ${i + 1}`,
+          error: `${error.message}${error.detail ? ` - ${error.detail}` : ''}${error.hint ? ` (Hint: ${error.hint})` : ''}`
+        };
       }
     }
+    
+    console.log(`[Auto-Migrate] ✅ Migration completed: ${executed} executed, ${skipped} skipped (already exist)`);
 
     console.log('[Auto-Migrate] ✅ Knowledge base migration completed');
     
