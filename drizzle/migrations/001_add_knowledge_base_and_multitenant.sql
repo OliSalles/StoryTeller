@@ -69,7 +69,7 @@ CREATE INDEX IF NOT EXISTS idx_team_members_user_id ON team_members(user_id);
 -- ============================================
 
 -- Knowledge source type enum
-CREATE TYPE knowledge_source_type AS ENUM ('code_repo', 'document', 'story');
+CREATE TYPE knowledge_source_type AS ENUM ('code_repo', 'document', 'story', 'miro_board');
 
 -- Knowledge source status enum
 CREATE TYPE knowledge_source_status AS ENUM ('pending', 'processing', 'completed', 'failed');

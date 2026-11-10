@@ -61,6 +61,35 @@ Times dentro de uma empresa para:
 - Inclui título, descrição, critérios de aceitação e tasks
 - Associa ao time quando disponível
 
+#### 4. Miro Boards
+
+**Integração via API REST:**
+- Conecta via URL do board: `https://miro.com/app/board/<id>/`
+- Busca automaticamente todos os items via Miro REST API
+- Tipos suportados:
+  - Sticky notes
+  - Text items
+  - Cards (title + content)
+  - Shapes com texto
+  - App cards (embeds)
+- Mantém contexto de frames/agrupamentos
+- Suporta re-sync para atualizar conteúdo
+
+**Configuração:**
+1. Criar app no Miro: https://developers.miro.com/
+2. Obter Access Token com permissão `boards:read`
+3. Adicionar `MIRO_ACCESS_TOKEN` no `.env.local`
+
+**Exemplo de estrutura ingerida:**
+```
+# Nome do Frame
+[sticky_note] Texto da nota
+[card] Título do card
+
+Conteúdo do card
+[text] Texto solto
+```
+
 ### Processo de Ingestão
 
 1. **Upload/Criação** da fonte de conhecimento
@@ -216,7 +245,21 @@ Ou usar Drizzle push (irá criar todas as tabelas):
 npm run db:push
 ```
 
-### 4. Instalar Dependências
+### 4. Configurar Miro (Opcional)
+
+Para importar boards do Miro:
+
+1. Acesse https://developers.miro.com/
+2. Crie um novo app
+3. Em "Permissions", habilite `boards:read`
+4. Copie o Access Token
+5. Adicione ao `.env.local`:
+
+```bash
+MIRO_ACCESS_TOKEN=seu-token-aqui
+```
+
+### 5. Instalar Dependências
 
 ```bash
 pnpm install
@@ -271,6 +314,16 @@ await trpc.knowledge.processSource.mutate({ sourceId });
 ```typescript
 await trpc.knowledge.ingestStories.mutate({
   name: "User Stories Existentes",
+  teamId: 1 // opcional
+});
+```
+
+**Importar board do Miro:**
+
+```typescript
+await trpc.knowledge.importMiroBoard.mutate({
+  boardUrl: "https://miro.com/app/board/uXjVKag..../",
+  name: "Board de Planejamento", // opcional
   teamId: 1 // opcional
 });
 ```

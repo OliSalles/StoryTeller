@@ -337,6 +337,14 @@ export async function processKnowledgeSource(
         source.teamId,
         onProgress
       );
+    } else if (source.type === 'miro_board') {
+      // Process Miro board
+      if (!source.sourceUrl) {
+        throw new Error('Board URL is required for Miro board');
+      }
+      
+      const { ingestMiroBoard } = await import('./miro-ingestion');
+      await ingestMiroBoard(sourceId, source.companyId, source.sourceUrl, onProgress);
     }
     
     // Get final chunk count

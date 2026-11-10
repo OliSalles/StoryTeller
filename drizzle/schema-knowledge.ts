@@ -87,6 +87,7 @@ export const knowledgeSourceTypeEnum = pgEnum("knowledge_source_type", [
   "code_repo",    // GitHub repo or zip upload
   "document",     // PDF, DOCX, MD, TXT files
   "story",        // User stories created or imported
+  "miro_board",   // Miro board via API or export
 ]);
 
 export const knowledgeSourceStatusEnum = pgEnum("knowledge_source_status", [

@@ -18,8 +18,9 @@ export const knowledgeRouter = router({
     .input(
       z.object({
         name: z.string().min(1, "Nome é obrigatório"),
-        type: z.enum(['code_repo', 'document', 'story']),
+        type: z.enum(['code_repo', 'document', 'story', 'miro_board']),
         teamId: z.number().optional(),
+        sourceUrl: z.string().optional(), // For Miro board URL
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -29,6 +30,7 @@ export const knowledgeRouter = router({
         name: input.name,
         type: input.type,
         status: 'pending',
+        sourceUrl: input.sourceUrl,
         createdBy: ctx.user.id,
       });
       
@@ -242,5 +244,49 @@ export const knowledgeRouter = router({
       });
       
       return { success: true, message: "Re-indexação iniciada" };
+    }),
+
+  /**
+   * Import Miro board via URL
+   */
+  importMiroBoard: tenantProcedure
+    .input(
+      z.object({
+        boardUrl: z.string().url("URL inválida"),
+        name: z.string().optional(),
+        teamId: z.number().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { extractBoardId } = await import("../_core/miro-ingestion");
+      
+      // Validate Miro URL
+      const boardId = extractBoardId(input.boardUrl);
+      if (!boardId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "URL do Miro inválida. Use o formato: https://miro.com/app/board/<id>/",
+        });
+      }
+
+      // Create source
+      const sourceName = input.name || `Miro Board ${boardId}`;
+      const sourceId = await knowledgeDb.createKnowledgeSource({
+        companyId: ctx.tenant.companyId,
+        teamId: input.teamId || null,
+        name: sourceName,
+        type: 'miro_board',
+        status: 'pending',
+        sourceUrl: input.boardUrl,
+        metadata: { boardId },
+        createdBy: ctx.user.id,
+      });
+
+      // Start processing
+      processKnowledgeSource(sourceId).catch((error) => {
+        console.error(`[Knowledge] Failed to process Miro board ${sourceId}:`, error);
+      });
+
+      return { sourceId, boardId, message: "Importação do Miro iniciada" };
     }),
 });
