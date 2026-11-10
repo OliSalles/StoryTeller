@@ -34,6 +34,9 @@ import {
   TrendingUp,
   CreditCard,
   Zap,
+  Database,
+  MessageSquare,
+  Building2,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -43,10 +46,13 @@ import { Button } from "./ui/button";
 const menuItems = [
   { icon: Sparkles, label: "Gerar Feature", path: "/generate" },
   { icon: History, label: "Histórico", path: "/history" },
+  { icon: Database, label: "Base de Conhecimento", path: "/knowledge" },
+  { icon: MessageSquare, label: "Knowledge Chat", path: "/knowledge/chat" },
   { icon: FileText, label: "Execuções", path: "/executions" },
   { icon: TrendingUp, label: "Uso de Tokens", path: "/tokens" },
   { icon: Zap, label: "Planos", path: "/pricing" },
   { icon: CreditCard, label: "Assinatura", path: "/account/subscription" },
+  { icon: Building2, label: "Empresa & Times", path: "/company/settings" },
   { icon: Brain, label: "Config. LLM", path: "/config/llm" },
   // { icon: GitBranch, label: "Config. Jira", path: "/config/jira" }, // Oculto temporariamente
   { icon: Cloud, label: "Config. Azure DevOps", path: "/config/azure-devops" },

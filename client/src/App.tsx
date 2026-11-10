@@ -20,6 +20,9 @@ import TokenUsage from "./pages/TokenUsage";
 import Pricing from "./pages/Pricing";
 import AccountSubscription from "./pages/AccountSubscription";
 import SubscriptionSuccess from "./pages/SubscriptionSuccess";
+import { CompanySettings } from "./pages/CompanySettings";
+import { KnowledgeBase } from "./pages/KnowledgeBase";
+import { KnowledgeChat } from "./pages/KnowledgeChat";
 
 function Router() {
   return (
@@ -91,6 +94,24 @@ function Router() {
       <Route path={"/account/subscription"}>
         <DashboardLayout>
           <AccountSubscription />
+        </DashboardLayout>
+      </Route>
+
+      <Route path={"/company/settings"}>
+        <DashboardLayout>
+          <CompanySettings />
+        </DashboardLayout>
+      </Route>
+
+      <Route path={"/knowledge"}>
+        <DashboardLayout>
+          <KnowledgeBase />
+        </DashboardLayout>
+      </Route>
+
+      <Route path={"/knowledge/chat"}>
+        <DashboardLayout>
+          <KnowledgeChat />
         </DashboardLayout>
       </Route>
 
