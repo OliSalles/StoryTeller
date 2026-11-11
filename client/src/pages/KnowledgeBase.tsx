@@ -186,7 +186,7 @@ export function KnowledgeBase() {
                     <Input
                       id="file-upload"
                       type="file"
-                      accept=".zip,.txt,.md,.pdf,.docx"
+                      accept=".zip,.txt,.md,.pdf,.docx,.csv"
                       onChange={handleFileSelect}
                     />
                     {selectedFile && (

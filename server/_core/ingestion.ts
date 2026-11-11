@@ -117,6 +117,28 @@ export async function ingestCodeZip(
 }
 
 /**
+ * Resolve file extension from metadata or file path
+ */
+export function resolveFileExtension(filePath: string, fileName: string, metadata?: any): string {
+  // Try metadata.originalFileName first (from upload)
+  if (metadata?.originalFileName) {
+    const ext = path.extname(metadata.originalFileName).toLowerCase();
+    if (ext) {
+      return ext;
+    }
+  }
+  
+  // Fall back to filePath (stored file keeps original extension)
+  const extFromPath = path.extname(filePath).toLowerCase();
+  if (extFromPath) {
+    return extFromPath;
+  }
+  
+  // Last resort: try fileName
+  return path.extname(fileName).toLowerCase();
+}
+
+/**
  * Process a single document file
  */
 export async function ingestDocument(
@@ -124,17 +146,37 @@ export async function ingestDocument(
   companyId: number,
   filePath: string,
   fileName: string,
+  metadata?: any,
   onProgress?: (current: number, total: number) => void
 ): Promise<void> {
   console.log(`[Ingestion] Starting document ingestion: ${fileName}`);
   
-  const ext = path.extname(fileName).toLowerCase();
+  const ext = resolveFileExtension(filePath, fileName, metadata);
   let text = '';
   
   try {
     if (ext === '.txt' || ext === '.md') {
       // Plain text files
       text = await readFile(filePath, 'utf-8');
+    } else if (ext === '.csv') {
+      // CSV files - convert to readable text format
+      console.log(`[Ingestion] Parsing CSV: ${fileName}`);
+      const csvContent = await readFile(filePath, 'utf-8');
+      const lines = csvContent.split('\n').filter(line => line.trim());
+      
+      if (lines.length > 0) {
+        const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+        const rows = lines.slice(1).map(line => {
+          const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+          return headers.map((header, idx) => `${header}: ${values[idx] || ''}`).join('\n');
+        });
+        
+        text = `Tabela CSV: ${fileName}\n\n` + rows.join('\n\n---\n\n');
+      } else {
+        text = 'CSV vazio';
+      }
+      
+      console.log(`[Ingestion] Extracted ${text.length} characters from CSV (${lines.length - 1} rows)`);
     } else if (ext === '.pdf') {
       // PDF files using pdf-parse
       console.log(`[Ingestion] Parsing PDF: ${fileName}`);
@@ -338,6 +380,7 @@ export async function processKnowledgeSource(
         source.companyId,
         source.sourceUrl,
         source.name,
+        source.metadata,
         onProgress
       );
     } else if (source.type === 'story') {
