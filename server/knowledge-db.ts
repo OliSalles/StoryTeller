@@ -382,6 +382,22 @@ export async function getKnowledgeEmbeddingByChunkId(chunkId: number) {
 }
 
 /**
+ * Count embeddings for a given source
+ */
+export async function countEmbeddingsBySourceId(sourceId: number): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+  
+  const result = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(knowledgeEmbeddings)
+    .innerJoin(knowledgeChunks, eq(knowledgeEmbeddings.chunkId, knowledgeChunks.id))
+    .where(eq(knowledgeChunks.sourceId, sourceId));
+  
+  return Number(result[0]?.count ?? 0);
+}
+
+/**
  * Search for similar embeddings using cosine similarity
  * Uses the search_similar_embeddings function created in the migration
  */
