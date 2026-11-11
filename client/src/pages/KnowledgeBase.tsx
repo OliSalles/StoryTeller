@@ -303,7 +303,7 @@ export function KnowledgeBase() {
                               {getStatusBadge(source.status)}
                             </div>
                             <p className="text-sm text-muted-foreground">
-                              Tipo: {source.type} • {source.totalChunks} chunks
+                              Tipo: {source.type} • {source.totalChunks} chunks • {(source as any).embeddingsCount ?? 0} embeddings
                             </p>
                           </div>
                           <div className="flex gap-2">

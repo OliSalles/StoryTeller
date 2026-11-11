@@ -83,15 +83,24 @@ export const knowledgeChatRouter = router({
       // Generate embedding for the query
       const queryEmbedding = await generateEmbedding(input.message);
       
+      // Configurable similarity threshold (text-embedding-3-small typically scores 0.3-0.5 for relevant matches)
+      const similarityThreshold = parseFloat(process.env.KNOWLEDGE_SIMILARITY_THRESHOLD || "0.3");
+      const topK = 5;
+      
       // Search for similar chunks
       const similarChunks = await knowledgeDb.searchSimilarEmbeddings(
         queryEmbedding,
         ctx.tenant.companyId,
-        5, // Top 5 matches
-        0.7 // 70% similarity threshold
+        topK,
+        similarityThreshold
       );
       
-      if (similarChunks.length === 0) {
+      // If no results pass threshold, fetch top-k without threshold as fallback
+      const finalChunks = similarChunks.length === 0 
+        ? await knowledgeDb.searchSimilarEmbeddings(queryEmbedding, ctx.tenant.companyId, topK, 0)
+        : similarChunks;
+      
+      if (finalChunks.length === 0) {
         // No relevant knowledge found
         const responseContent = "Desculpe, não encontrei informações relevantes na base de conhecimento da empresa para responder sua pergunta. Tente reformular ou adicionar mais contexto.";
         
@@ -106,7 +115,7 @@ export const knowledgeChatRouter = router({
       }
       
       // Build context from similar chunks
-      const context = similarChunks
+      const context = finalChunks
         .map((chunk, i) => `[${i + 1}] Fonte: ${chunk.source_name}\n${chunk.content}`)
         .join('\n\n---\n\n');
       
@@ -150,7 +159,7 @@ ${context}`;
         : JSON.stringify(llmResponse.choices[0]?.message?.content);
       
       // Prepare citations
-      const citations = similarChunks.map((chunk, i) => ({
+      const citations = finalChunks.map((chunk, i) => ({
         index: i + 1,
         sourceId: chunk.source_id,
         sourceName: chunk.source_name,
