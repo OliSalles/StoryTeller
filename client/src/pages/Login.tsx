@@ -46,8 +46,8 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-md shadow-sm border">
         <CardHeader className="space-y-1">
           <div className="flex justify-center mb-4">
             <img src="/logo.png" alt="Story Teller" className="h-40" />
