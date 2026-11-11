@@ -134,17 +134,20 @@ export function KnowledgeBase() {
   };
 
   return (
-    <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold">Base de Conhecimento</h1>
-            <p className="text-muted-foreground">
-              Gerencie fontes de conhecimento para análise e chat
-            </p>
-          </div>
+    <div className="space-y-4">
+        {/* Azure DevOps style header */}
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Base de Conhecimento</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Gerencie fontes de conhecimento para análise e chat
+          </p>
+        </div>
+
+        {/* Command bar */}
+        <div className="flex items-center gap-2 pb-4 border-b">
           <Link href="/knowledge/chat">
-            <Button>
-              <MessageSquare className="mr-2 h-4 w-4" />
+            <Button size="sm" className="bg-primary hover:bg-primary/90">
+              <MessageSquare className="mr-2 h-3.5 w-3.5" />
               Abrir Chat
             </Button>
           </Link>
