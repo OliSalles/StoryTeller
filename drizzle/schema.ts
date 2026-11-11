@@ -303,3 +303,8 @@ export * from "./schema-coupons";
 // Password Reset
 // ============================================
 export * from "./schema-password-reset";
+
+// ============================================
+// Knowledge Base & Multi-Tenant
+// ============================================
+export * from "./schema-knowledge";

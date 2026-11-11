@@ -1,9 +1,24 @@
 // Dotenv agora é carregado automaticamente pelo tsx com --env-file flag
+
+// Apply sensible defaults for optional env vars
+if (!process.env.OPENAI_EMBEDDING_MODEL) {
+  process.env.OPENAI_EMBEDDING_MODEL = 'text-embedding-3-small';
+}
+if (!process.env.UPLOAD_DIR) {
+  // Use OS temp directory + app-specific subfolder
+  process.env.UPLOAD_DIR = process.env.NODE_ENV === 'production' 
+    ? '/tmp/storyteller-uploads'
+    : './uploads';
+}
+
 // Log das variáveis importantes
 console.log("🔍 Environment Check:");
 console.log(`   STRIPE_SECRET_KEY: ${process.env.STRIPE_SECRET_KEY ? '✓ Loaded' : '✗ Missing'}`);
 console.log(`   OPENAI_API_KEY: ${process.env.OPENAI_API_KEY ? '✓ Loaded' : '✗ Missing'}`);
 console.log(`   DATABASE_URL: ${process.env.DATABASE_URL ? '✓ Loaded' : '✗ Missing'}`);
+console.log(`   OPENAI_EMBEDDING_MODEL: ${process.env.OPENAI_EMBEDDING_MODEL}`);
+console.log(`   UPLOAD_DIR: ${process.env.UPLOAD_DIR}`);
+console.log(`   MIRO_ACCESS_TOKEN: ${process.env.MIRO_ACCESS_TOKEN ? '✓ Loaded' : '✗ Missing (Miro import disabled)'}`);
 
 import express from "express";
 import { createServer } from "http";
@@ -12,6 +27,8 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
+import { runAutoMigrations } from "./auto-migrate";
+import { mkdir } from "fs/promises";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -33,6 +50,17 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 }
 
 async function startServer() {
+  // Run auto-migrations before starting the server
+  await runAutoMigrations();
+  
+  // Ensure upload directory exists
+  try {
+    await mkdir(process.env.UPLOAD_DIR!, { recursive: true });
+    console.log(`[Server] ✅ Upload directory ready: ${process.env.UPLOAD_DIR}`);
+  } catch (error: any) {
+    console.warn(`[Server] ⚠️  Could not create upload directory: ${error.message}`);
+  }
+  
   const app = express();
   const server = createServer(app);
   
