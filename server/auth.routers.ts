@@ -151,7 +151,6 @@ export const authRouter = router({
       // Criar novo token
       await db.createPasswordResetToken(user.id, token, expiresAt);
 
-      // TODO: Enviar email com o link de reset
       const resetLink = `${ENV.appUrl}/reset-password?token=${token}`;
 
       // Log sempre (útil em dev)
