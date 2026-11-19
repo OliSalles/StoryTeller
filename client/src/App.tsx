@@ -5,6 +5,7 @@ import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { PublicThemeToggle } from "./components/ThemeToggle";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -134,6 +135,7 @@ function App() {
       >
         <TooltipProvider>
           <Toaster />
+          <PublicThemeToggle />
           <Router />
         </TooltipProvider>
       </ThemeProvider>
