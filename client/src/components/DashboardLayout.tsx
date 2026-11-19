@@ -44,10 +44,10 @@ import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
 import { Button } from "./ui/button";
 
 const menuItems = [
+  { icon: MessageSquare, label: "Knowledge Chat", path: "/knowledge/chat" },
   { icon: Sparkles, label: "Gerar Feature", path: "/generate" },
   { icon: History, label: "Histórico", path: "/history" },
   { icon: Database, label: "Base de Conhecimento", path: "/knowledge" },
-  { icon: MessageSquare, label: "Knowledge Chat", path: "/knowledge/chat" },
   { icon: FileText, label: "Execuções", path: "/executions" },
   { icon: TrendingUp, label: "Uso de Tokens", path: "/tokens" },
   { icon: Zap, label: "Planos", path: "/pricing" },

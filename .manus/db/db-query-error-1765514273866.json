@@ -1,8 +1,0 @@
-{
-  "query": "SELECT f.id, f.title, COUNT(us.id) as story_count FROM features f LEFT JOIN user_stories us ON f.id = us.featureId WHERE f.userId = 1 GROUP BY f.id ORDER BY f.createdAt DESC LIMIT 5",
-  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user V22mdELEt8WxYWD.c9cf6d5eba9c --database HUntQsx8BjuPDjNs8cJdwo --execute SELECT f.id, f.title, COUNT(us.id) as story_count FROM features f LEFT JOIN user_stories us ON f.id = us.featureId WHERE f.userId = 1 GROUP BY f.id ORDER BY f.createdAt DESC LIMIT 5",
-  "returncode": 1,
-  "logs": [
-    "ERROR 1054 (42S22) at line 1: Unknown column 'us.featureid' in 'on clause'"
-  ]
-}
