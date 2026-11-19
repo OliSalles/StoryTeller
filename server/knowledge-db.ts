@@ -2,7 +2,7 @@
  * Database functions for Knowledge Base and Multi-Tenant features
  */
 
-import { eq, desc, and, sql, or, inArray } from "drizzle-orm";
+import { eq, desc, asc, and, sql, or, inArray, ilike } from "drizzle-orm";
 import { getDb } from "./db";
 import {
   companies,
@@ -352,6 +352,69 @@ export async function getKnowledgeChunksBySourceId(sourceId: number) {
   return db.select().from(knowledgeChunks)
     .where(eq(knowledgeChunks.sourceId, sourceId))
     .orderBy(knowledgeChunks.chunkIndex);
+}
+
+/**
+ * Count chunks per source for a company (read only, single query)
+ */
+export async function countChunksBySourceForCompany(companyId: number): Promise<Record<number, number>> {
+  const db = await getDb();
+  if (!db) return {};
+
+  const rows = await db
+    .select({ sourceId: knowledgeChunks.sourceId, count: sql<number>`count(*)` })
+    .from(knowledgeChunks)
+    .where(eq(knowledgeChunks.companyId, companyId))
+    .groupBy(knowledgeChunks.sourceId);
+
+  const map: Record<number, number> = {};
+  for (const row of rows) map[row.sourceId] = Number(row.count ?? 0);
+  return map;
+}
+
+/**
+ * Paginated chunks of a source, scoped by company, with optional text search
+ */
+export async function getKnowledgeChunksPage(params: {
+  sourceId: number;
+  companyId: number;
+  offset: number;
+  limit: number;
+  search?: string;
+}) {
+  const db = await getDb();
+  if (!db) return { items: [], total: 0 };
+
+  const conditions = [
+    eq(knowledgeChunks.sourceId, params.sourceId),
+    eq(knowledgeChunks.companyId, params.companyId),
+  ];
+  const term = params.search?.trim();
+  if (term) {
+    const escaped = term.replace(/[\\%_]/g, (c) => `\\${c}`);
+    conditions.push(ilike(knowledgeChunks.content, `%${escaped}%`));
+  }
+  const where = and(...conditions);
+
+  const [items, totalRows] = await Promise.all([
+    db
+      .select({
+        id: knowledgeChunks.id,
+        chunkIndex: knowledgeChunks.chunkIndex,
+        content: knowledgeChunks.content,
+        metadata: knowledgeChunks.metadata,
+        tokenCount: knowledgeChunks.tokenCount,
+        createdAt: knowledgeChunks.createdAt,
+      })
+      .from(knowledgeChunks)
+      .where(where)
+      .orderBy(asc(knowledgeChunks.id))
+      .limit(params.limit)
+      .offset(params.offset),
+    db.select({ count: sql<number>`count(*)` }).from(knowledgeChunks).where(where),
+  ]);
+
+  return { items, total: Number(totalRows[0]?.count ?? 0) };
 }
 
 export async function deleteKnowledgeChunksBySourceId(sourceId: number) {

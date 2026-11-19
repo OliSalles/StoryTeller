@@ -165,12 +165,18 @@ export const knowledgeRouter = router({
         sources = await knowledgeDb.getKnowledgeSourcesByCompanyId(ctx.tenant.companyId);
       }
       
-      // Enrich with embedding counts
+      // Only sources of the active company
+      sources = sources.filter((source) => source.companyId === ctx.tenant.companyId);
+
+      const chunkCounts = await knowledgeDb.countChunksBySourceForCompany(ctx.tenant.companyId);
+
+      // Enrich with chunk and embedding counts
       const enriched = await Promise.all(
         sources.map(async (source) => {
           const embeddingsCount = await knowledgeDb.countEmbeddingsBySourceId(source.id);
           return {
             ...source,
+            chunksCount: chunkCounts[source.id] ?? 0,
             embeddingsCount,
           };
         })
@@ -198,6 +204,53 @@ export const knowledgeRouter = router({
       const chunks = await knowledgeDb.getKnowledgeChunksBySourceId(input.sourceId);
       
       return { ...source, chunksCount: chunks.length };
+    }),
+
+  /**
+   * Read only: chunks of a source in order, paginated, with optional text search
+   */
+  getSourceChunks: tenantProcedure
+    .input(
+      z.object({
+        sourceId: z.number(),
+        offset: z.number().int().min(0).default(0),
+        limit: z.number().int().min(1).max(200).default(50),
+        search: z.string().max(200).optional(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const source = await knowledgeDb.getKnowledgeSourceById(input.sourceId);
+
+      if (!source || source.companyId !== ctx.tenant.companyId) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Fonte de conhecimento não encontrada",
+        });
+      }
+
+      const { items, total } = await knowledgeDb.getKnowledgeChunksPage({
+        sourceId: input.sourceId,
+        companyId: ctx.tenant.companyId,
+        offset: input.offset,
+        limit: input.limit,
+        search: input.search,
+      });
+
+      return {
+        source: {
+          id: source.id,
+          name: source.name,
+          type: source.type,
+          status: source.status,
+          createdAt: source.createdAt,
+          sourceUrl: source.type === "miro_board" ? source.sourceUrl : null,
+        },
+        items,
+        total,
+        offset: input.offset,
+        limit: input.limit,
+        hasMore: input.offset + items.length < total,
+      };
     }),
 
   /**

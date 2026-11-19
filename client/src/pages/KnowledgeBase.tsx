@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { trpc } from "../lib/trpc";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -8,7 +8,14 @@ import { Badge } from "../components/ui/badge";
 import { Progress } from "../components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { toast } from "sonner";
-import { FileText, Upload, Database, RefreshCw, Trash2, MessageSquare } from "lucide-react";
+import { FileText, Upload, Database, RefreshCw, Trash2, MessageSquare, Eye, Search } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
+import {
+  KnowledgeSourceViewer,
+  SOURCE_STATUS_LABELS,
+  SOURCE_TYPE_LABELS,
+} from "../components/KnowledgeSourceViewer";
 import { Link } from "wouter";
 
 export function KnowledgeBase() {
@@ -17,11 +24,30 @@ export function KnowledgeBase() {
   const [isUploading, setIsUploading] = useState(false);
   const [miroBoardUrl, setMiroBoardUrl] = useState("");
   const [miroName, setMiroName] = useState("");
+  const [filterText, setFilterText] = useState("");
+  const [filterType, setFilterType] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [viewing, setViewing] = useState<{ id: number; name: string } | null>(null);
 
   const utils = trpc.useUtils();
   
   // Queries
   const { data: sources, isLoading } = trpc.knowledge.listSources.useQuery();
+
+  const filteredSources = useMemo(() => {
+    const term = filterText.trim().toLowerCase();
+    return (sources ?? []).filter((source) => {
+      if (filterType !== "all" && source.type !== filterType) return false;
+      if (filterStatus !== "all" && source.status !== filterStatus) return false;
+      if (term && !source.name.toLowerCase().includes(term)) return false;
+      return true;
+    });
+  }, [sources, filterText, filterType, filterStatus]);
+
+  const totalChunks = useMemo(
+    () => (sources ?? []).reduce((sum, source) => sum + (source.chunksCount ?? 0), 0),
+    [sources]
+  );
 
   // Mutations
   const createSource = trpc.knowledge.createSource.useMutation();
@@ -34,7 +60,7 @@ export function KnowledgeBase() {
   });
   const deleteSource = trpc.knowledge.deleteSource.useMutation({
     onSuccess: () => {
-      toast.success("Fonte deletada!");
+      toast.success("Fonte excluída!");
       utils.knowledge.listSources.invalidate();
     },
   });
@@ -125,7 +151,7 @@ export function KnowledgeBase() {
       completed: "secondary",
       failed: "destructive",
     };
-    return <Badge variant={variants[status] || "outline"}>{status}</Badge>;
+    return <Badge variant={variants[status] || "outline"}>{SOURCE_STATUS_LABELS[status] ?? status}</Badge>;
   };
 
   const getProgress = (source: any) => {
@@ -153,15 +179,15 @@ export function KnowledgeBase() {
           </Link>
         </div>
 
-        <Tabs defaultValue="upload" className="space-y-4">
+        <Tabs defaultValue="sources" className="space-y-4">
           <TabsList>
-            <TabsTrigger value="upload">
-              <Upload className="mr-2 h-4 w-4" />
-              Upload
-            </TabsTrigger>
             <TabsTrigger value="sources">
               <Database className="mr-2 h-4 w-4" />
               Fontes
+            </TabsTrigger>
+            <TabsTrigger value="upload">
+              <Upload className="mr-2 h-4 w-4" />
+              Upload
             </TabsTrigger>
           </TabsList>
 
@@ -286,70 +312,142 @@ export function KnowledgeBase() {
               <CardHeader>
                 <CardTitle>Fontes de Conhecimento</CardTitle>
                 <CardDescription>
-                  {sources?.length || 0} fonte(s) disponível(is)
+                  {sources?.length || 0} fonte(s) na base · {totalChunks} trecho(s) indexado(s). Clique em uma fonte para ver o conteúdo.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
+                <div className="flex flex-col gap-2 md:flex-row md:items-center">
+                  <div className="relative flex-1">
+                    <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={filterText}
+                      onChange={(e) => setFilterText(e.target.value)}
+                      placeholder="Filtrar por nome"
+                      className="pl-8"
+                    />
+                  </div>
+                  <Select value={filterType} onValueChange={setFilterType}>
+                    <SelectTrigger className="w-full md:w-44">
+                      <SelectValue placeholder="Tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os tipos</SelectItem>
+                      {Object.entries(SOURCE_TYPE_LABELS).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={filterStatus} onValueChange={setFilterStatus}>
+                    <SelectTrigger className="w-full md:w-44">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os status</SelectItem>
+                      {Object.entries(SOURCE_STATUS_LABELS).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 {isLoading ? (
                   <p className="text-muted-foreground">Carregando...</p>
                 ) : sources && sources.length > 0 ? (
-                  <div className="space-y-4">
-                    {sources.map((source) => (
-                      <div
-                        key={source.id}
-                        className="p-4 border rounded-lg space-y-3"
-                      >
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-semibold">{source.name}</h3>
-                              {getStatusBadge(source.status)}
-                            </div>
-                            <p className="text-sm text-muted-foreground">
-                              Tipo: {source.type} • {source.totalChunks} chunks • {(source as any).embeddingsCount ?? 0} embeddings
-                            </p>
-                          </div>
-                          <div className="flex gap-2">
-                            {source.status === 'completed' && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => reindexSource.mutate({ sourceId: source.id })}
-                              >
-                                <RefreshCw className="h-4 w-4" />
-                              </Button>
-                            )}
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => {
-                                if (confirm("Deseja realmente deletar esta fonte?")) {
-                                  deleteSource.mutate({ sourceId: source.id });
-                                }
-                              }}
+                  filteredSources.length > 0 ? (
+                    <div className="rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Nome</TableHead>
+                            <TableHead className="hidden md:table-cell">Tipo</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="text-right">Trechos</TableHead>
+                            <TableHead className="hidden md:table-cell">Criada em</TableHead>
+                            <TableHead className="w-[1%] text-right">Ações</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filteredSources.map((source) => (
+                            <TableRow
+                              key={source.id}
+                              className="cursor-pointer"
+                              onClick={() => setViewing({ id: source.id, name: source.name })}
                             >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                        
-                        {source.status === 'processing' && (
-                          <div className="space-y-1">
-                            <Progress value={getProgress(source)} />
-                            <p className="text-xs text-muted-foreground">
-                              {source.processedChunks} / {source.totalChunks} chunks processados
-                            </p>
-                          </div>
-                        )}
-                        
-                        {source.status === 'failed' && source.errorMessage && (
-                          <p className="text-sm text-destructive">
-                            Erro: {source.errorMessage}
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                              <TableCell className="max-w-[320px]">
+                                <div className="flex items-center gap-2">
+                                  <FileText className="h-4 w-4 shrink-0 text-primary" />
+                                  <span className="truncate font-medium" title={source.name}>{source.name}</span>
+                                </div>
+                                {source.status === 'processing' && (
+                                  <div className="mt-2 space-y-1">
+                                    <Progress value={getProgress(source)} />
+                                    <p className="text-xs text-muted-foreground">
+                                      {source.processedChunks} / {source.totalChunks} trechos processados
+                                    </p>
+                                  </div>
+                                )}
+                                {source.status === 'failed' && source.errorMessage && (
+                                  <p className="mt-1 truncate text-xs text-destructive" title={source.errorMessage}>
+                                    Erro: {source.errorMessage}
+                                  </p>
+                                )}
+                              </TableCell>
+                              <TableCell className="hidden md:table-cell">
+                                {SOURCE_TYPE_LABELS[source.type] ?? source.type}
+                              </TableCell>
+                              <TableCell>{getStatusBadge(source.status)}</TableCell>
+                              <TableCell className="text-right tabular-nums">
+                                {source.chunksCount ?? source.totalChunks ?? 0}
+                              </TableCell>
+                              <TableCell className="hidden md:table-cell text-muted-foreground">
+                                {new Date(source.createdAt).toLocaleDateString("pt-BR")}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    title="Ver conteúdo"
+                                    aria-label="Ver conteúdo"
+                                    onClick={() => setViewing({ id: source.id, name: source.name })}
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                  {source.status === 'completed' && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      title="Reindexar"
+                                      aria-label="Reindexar"
+                                      onClick={() => reindexSource.mutate({ sourceId: source.id })}
+                                    >
+                                      <RefreshCw className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="text-destructive hover:text-destructive"
+                                    title="Excluir"
+                                    aria-label="Excluir"
+                                    onClick={() => {
+                                      if (confirm("Deseja realmente excluir esta fonte?")) {
+                                        deleteSource.mutate({ sourceId: source.id });
+                                      }
+                                    }}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground">Nenhuma fonte encontrada com esses filtros.</p>
+                  )
                 ) : (
                   <p className="text-muted-foreground">
                     Nenhuma fonte de conhecimento ainda. Faça upload de arquivos ou ingira stories.
@@ -359,6 +457,15 @@ export function KnowledgeBase() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        <KnowledgeSourceViewer
+          sourceId={viewing?.id ?? null}
+          sourceName={viewing?.name}
+          open={viewing !== null}
+          onOpenChange={(open) => {
+            if (!open) setViewing(null);
+          }}
+        />
       </div>
   );
 }
