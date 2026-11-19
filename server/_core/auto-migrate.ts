@@ -184,9 +184,23 @@ async function runKnowledgeBaseMigration(): Promise<MigrationResult> {
           pgError.code === '42P07' || // duplicate_table
           pgError.code === '42P06' || // duplicate_schema
           pgError.message?.includes('already exists');
+
+        // Skip vector-specific failures when pgvector is unavailable
+        const isVectorUnavailable =
+          pgError.message?.includes('type "vector" does not exist') ||
+          pgError.message?.includes('extension "vector" is not available') ||
+          pgError.message?.includes('could not open extension control file') ||
+          (typeof statement === 'string' && statement.includes('vector') && (
+            pgError.code === '42704' || // undefined_object
+            pgError.code === '0A000' || // feature_not_supported
+            pgError.code === '22023'    // invalid_parameter_value (ivfflat needs data)
+          ));
         
-        if (isAlreadyExists) {
+        if (isAlreadyExists || isVectorUnavailable) {
           skipped++;
+          if (isVectorUnavailable) {
+            console.warn(`[Auto-Migrate] ⚠️  Skipping vector-dependent statement ${i + 1}`);
+          }
           continue;
         }
         
@@ -237,13 +251,13 @@ export async function runAutoMigrations(): Promise<void> {
     const vectorResult = await enablePgVector();
     
     if (!vectorResult.success) {
-      console.warn('[Auto-Migrate] ⚠️  pgvector not available - Knowledge base features will be disabled');
+      console.warn('[Auto-Migrate] ⚠️  pgvector not available - embeddings/RAG search will be limited');
       console.warn(`[Auto-Migrate] ⚠️  ${vectorResult.message}: ${vectorResult.error}`);
-      // Don't crash the app - existing features should work
-      return;
+      console.warn('[Auto-Migrate] ⚠️  Continuing with company/chat tables migration...');
+      // Don't abort: companies, teams and chat tables can still be created
     }
 
-    // Step 2: Run knowledge base migration
+    // Step 2: Run knowledge base migration (companies/chat first; vector statements may be skipped)
     const migrationResult = await runKnowledgeBaseMigration();
     
     if (!migrationResult.success) {

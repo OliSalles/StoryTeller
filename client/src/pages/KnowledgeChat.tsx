@@ -33,9 +33,16 @@ export function KnowledgeChat() {
     }
   }, [messages]);
 
+  const [sessionError, setSessionError] = useState("");
+
   const createSession = trpc.knowledgeChat.createSession.useMutation({
     onSuccess: (data) => {
       setSessionId(data.sessionId);
+      setSessionError("");
+    },
+    onError: (error) => {
+      setSessionError(error.message);
+      toast.error(error.message);
     },
   });
 
@@ -197,9 +204,24 @@ export function KnowledgeChat() {
               )}
             </ScrollArea>
 
+            {sessionError && (
+              <div className="mt-4 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+                {sessionError}
+                <div className="mt-2">
+                  <Button size="sm" variant="outline" onClick={createNewSession} disabled={createSession.isPending}>
+                    Tentar novamente
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {!sessionId && !sessionError && createSession.isPending && (
+              <p className="mt-4 text-sm text-muted-foreground">Preparando conversa...</p>
+            )}
+
             <div className="mt-4 flex gap-2">
               <Input
-                placeholder="Digite sua pergunta..."
+                placeholder={sessionId ? "Digite sua pergunta..." : "Aguarde a sessão iniciar..."}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
