@@ -20,6 +20,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useIsMobile } from "@/hooks/useMobile";
+import { useTheme } from "@/contexts/ThemeContext";
 import {
   LayoutDashboard,
   LogOut,
@@ -37,6 +38,8 @@ import {
   Database,
   MessageSquare,
   Building2,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -116,6 +119,7 @@ function DashboardLayoutContent({
   setSidebarWidth,
 }: DashboardLayoutContentProps) {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [location, setLocation] = useLocation();
   const { state, toggleSidebar } = useSidebar();
   const isCollapsed = state === "collapsed";
@@ -188,6 +192,18 @@ function DashboardLayoutContent({
           </nav>
         </div>
 
+        <div className="flex items-center gap-1">
+        {toggleTheme && (
+          <button
+            onClick={toggleTheme}
+            className="h-8 w-8 flex items-center justify-center hover:bg-accent/50 rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label={theme === "dark" ? "Usar tema claro" : "Usar tema escuro"}
+            title={theme === "dark" ? "Tema claro" : "Tema escuro"}
+          >
+            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
+        )}
+
         {/* User menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -212,6 +228,7 @@ function DashboardLayoutContent({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       </header>
 
       <div className="flex pt-12">
