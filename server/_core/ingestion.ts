@@ -101,11 +101,13 @@ export async function ingestCodeZip(
   
   // Process each file
   let processed = 0;
+  let totalEmbeddings = 0;
   for (const file of files) {
-    await ingestTextContent(sourceId, companyId, file.content, {
+    const result = await ingestTextContent(sourceId, companyId, file.content, {
       filePath: file.path,
       fileType: 'code',
     });
+    totalEmbeddings += result.embeddingsCreated;
     
     processed++;
     if (onProgress) {
@@ -113,7 +115,29 @@ export async function ingestCodeZip(
     }
   }
   
-  console.log(`[Ingestion] Code ingestion completed: ${processed} files`);
+  console.log(`[Ingestion] Code ingestion completed: ${processed} files, ${totalEmbeddings} embeddings`);
+}
+
+/**
+ * Resolve file extension from metadata or file path
+ */
+export function resolveFileExtension(filePath: string, fileName: string, metadata?: any): string {
+  // Try metadata.originalFileName first (from upload)
+  if (metadata?.originalFileName) {
+    const ext = path.extname(metadata.originalFileName).toLowerCase();
+    if (ext) {
+      return ext;
+    }
+  }
+  
+  // Fall back to filePath (stored file keeps original extension)
+  const extFromPath = path.extname(filePath).toLowerCase();
+  if (extFromPath) {
+    return extFromPath;
+  }
+  
+  // Last resort: try fileName
+  return path.extname(fileName).toLowerCase();
 }
 
 /**
@@ -124,17 +148,37 @@ export async function ingestDocument(
   companyId: number,
   filePath: string,
   fileName: string,
+  metadata?: any,
   onProgress?: (current: number, total: number) => void
 ): Promise<void> {
   console.log(`[Ingestion] Starting document ingestion: ${fileName}`);
   
-  const ext = path.extname(fileName).toLowerCase();
+  const ext = resolveFileExtension(filePath, fileName, metadata);
   let text = '';
   
   try {
     if (ext === '.txt' || ext === '.md') {
       // Plain text files
       text = await readFile(filePath, 'utf-8');
+    } else if (ext === '.csv') {
+      // CSV files - convert to readable text format
+      console.log(`[Ingestion] Parsing CSV: ${fileName}`);
+      const csvContent = await readFile(filePath, 'utf-8');
+      const lines = csvContent.split('\n').filter(line => line.trim());
+      
+      if (lines.length > 0) {
+        const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+        const rows = lines.slice(1).map(line => {
+          const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+          return headers.map((header, idx) => `${header}: ${values[idx] || ''}`).join('\n');
+        });
+        
+        text = `Tabela CSV: ${fileName}\n\n` + rows.join('\n\n---\n\n');
+      } else {
+        text = 'CSV vazio';
+      }
+      
+      console.log(`[Ingestion] Extracted ${text.length} characters from CSV (${lines.length - 1} rows)`);
     } else if (ext === '.pdf') {
       // PDF files using pdf-parse
       console.log(`[Ingestion] Parsing PDF: ${fileName}`);
@@ -158,7 +202,7 @@ export async function ingestDocument(
       throw new Error(`Unsupported file type: ${ext}`);
     }
     
-    await ingestTextContent(sourceId, companyId, text, {
+    const result = await ingestTextContent(sourceId, companyId, text, {
       fileName,
       fileType: 'document',
     });
@@ -167,7 +211,7 @@ export async function ingestDocument(
       onProgress(1, 1);
     }
     
-    console.log(`[Ingestion] Document ingestion completed: ${fileName}`);
+    console.log(`[Ingestion] Document ingestion completed: ${fileName}, ${result.embeddingsCreated} embeddings`);
   } catch (error) {
     console.error(`[Ingestion] Failed to ingest document ${fileName}:`, error);
     throw error;
@@ -212,6 +256,7 @@ export async function ingestUserStories(
   
   // Process each story
   let processed = 0;
+  let totalEmbeddings = 0;
   for (const story of stories) {
     const text = `
 Title: ${story.title}
@@ -228,12 +273,13 @@ Tasks:
 ${story.tasks?.map((t, i) => `${i + 1}. ${t.title}\n   ${t.description || ''}\n   Estimated: ${t.estimatedHours || 0}h`).join('\n\n') || 'None'}
 `.trim();
     
-    await ingestTextContent(sourceId, companyId, text, {
+    const result = await ingestTextContent(sourceId, companyId, text, {
       storyId: story.id,
       featureId: story.featureId,
       storyTitle: story.title,
       fileType: 'story',
     });
+    totalEmbeddings += result.embeddingsCreated;
     
     processed++;
     if (onProgress) {
@@ -241,23 +287,26 @@ ${story.tasks?.map((t, i) => `${i + 1}. ${t.title}\n   ${t.description || ''}\n 
     }
   }
   
-  console.log(`[Ingestion] User stories ingestion completed: ${processed} stories`);
+  console.log(`[Ingestion] User stories ingestion completed: ${processed} stories, ${totalEmbeddings} embeddings`);
 }
 
 /**
  * Core function to ingest text content: chunk, embed, and store
+ * Returns the number of embeddings successfully created
  */
 export async function ingestTextContent(
   sourceId: number,
   companyId: number,
   text: string,
   metadata: Record<string, any>
-): Promise<void> {
+): Promise<{ chunksCreated: number; embeddingsCreated: number }> {
   console.log(`[Ingestion] Processing text content: ${text.length} chars`);
   
   // Split into chunks
   const chunks = chunkText(text);
   console.log(`[Ingestion] Created ${chunks.length} chunks`);
+  
+  let embeddingsCreated = 0;
   
   // Process each chunk
   for (let i = 0; i < chunks.length; i++) {
@@ -288,14 +337,18 @@ export async function ingestTextContent(
         model: process.env.OPENAI_EMBEDDING_MODEL || "text-embedding-3-small",
       });
       
-      console.log(`[Ingestion] Processed chunk ${i + 1}/${chunks.length}`);
+      embeddingsCreated++;
+      console.log(`[Ingestion] Processed chunk ${i + 1}/${chunks.length} (embeddings: ${embeddingsCreated})`);
     } catch (error) {
       console.error(`[Ingestion] Failed to generate embedding for chunk ${i}:`, error);
-      throw error;
+      // Continue processing remaining chunks instead of throwing
+      // This allows partial success (some embeddings created)
     }
   }
   
-  console.log(`[Ingestion] Text content ingestion completed: ${chunks.length} chunks`);
+  console.log(`[Ingestion] Text content ingestion completed: ${chunks.length} chunks, ${embeddingsCreated} embeddings`);
+  
+  return { chunksCreated: chunks.length, embeddingsCreated };
 }
 
 /**
@@ -338,6 +391,7 @@ export async function processKnowledgeSource(
         source.companyId,
         source.sourceUrl,
         source.name,
+        source.metadata,
         onProgress
       );
     } else if (source.type === 'story') {
@@ -360,6 +414,23 @@ export async function processKnowledgeSource(
     
     // Get final chunk count
     const chunks = await knowledgeDb.getKnowledgeChunksBySourceId(sourceId);
+    
+    // Count embeddings created
+    const embeddingsCount = await knowledgeDb.countEmbeddingsBySourceId(sourceId);
+    
+    console.log(`[Ingestion] Source ${sourceId} completed: ${chunks.length} chunks, ${embeddingsCount} embeddings`);
+    
+    // If no embeddings were created, mark as failed
+    if (chunks.length > 0 && embeddingsCount === 0) {
+      await knowledgeDb.updateKnowledgeSource(sourceId, {
+        status: 'failed',
+        totalChunks: chunks.length,
+        processedChunks: chunks.length,
+        errorMessage: 'No embeddings were created. Check OPENAI_API_KEY configuration or embedding service logs.',
+      });
+      
+      throw new Error(`Source ${sourceId} completed with 0 embeddings (${chunks.length} chunks created)`);
+    }
     
     // Update status to completed
     await knowledgeDb.updateKnowledgeSource(sourceId, {

@@ -158,11 +158,25 @@ export const knowledgeRouter = router({
       }).optional()
     )
     .query(async ({ ctx, input }) => {
+      let sources;
       if (input?.teamId) {
-        return knowledgeDb.getKnowledgeSourcesByTeamId(input.teamId);
+        sources = await knowledgeDb.getKnowledgeSourcesByTeamId(input.teamId);
+      } else {
+        sources = await knowledgeDb.getKnowledgeSourcesByCompanyId(ctx.tenant.companyId);
       }
       
-      return knowledgeDb.getKnowledgeSourcesByCompanyId(ctx.tenant.companyId);
+      // Enrich with embedding counts
+      const enriched = await Promise.all(
+        sources.map(async (source) => {
+          const embeddingsCount = await knowledgeDb.countEmbeddingsBySourceId(source.id);
+          return {
+            ...source,
+            embeddingsCount,
+          };
+        })
+      );
+      
+      return enriched;
     }),
 
   /**
