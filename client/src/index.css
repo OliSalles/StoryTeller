@@ -55,26 +55,26 @@
   --chart-5: #008272;
   --radius: 0.25rem; /* 4px - Azure DevOps style */
   --background: #f8f8f8; /* Light neutral gray */
-  --foreground: #323130; /* Dark text */
+  --foreground: #1b1a19; /* Darker text for contrast */
   --card: #ffffff;
-  --card-foreground: #323130;
+  --card-foreground: #1b1a19;
   --popover: #ffffff;
-  --popover-foreground: #323130;
+  --popover-foreground: #1b1a19;
   --secondary: #edebe9; /* Light gray */
-  --secondary-foreground: #323130;
+  --secondary-foreground: #1b1a19;
   --muted: #faf9f8;
-  --muted-foreground: #605e5c;
+  --muted-foreground: #3b3a39;
   --accent: #edebe9;
-  --accent-foreground: #323130;
+  --accent-foreground: #1b1a19;
   --destructive: #d13438; /* Red */
   --destructive-foreground: #ffffff;
   --border: #e1e1e1; /* Subtle 1px border */
   --input: #ffffff;
   --ring: #0078d4;
   --sidebar: #ffffff;
-  --sidebar-foreground: #323130;
+  --sidebar-foreground: #1b1a19;
   --sidebar-accent: #f3f2f1;
-  --sidebar-accent-foreground: #323130;
+  --sidebar-accent-foreground: #1b1a19;
   --sidebar-border: #e1e1e1;
   --sidebar-ring: #0078d4;
 }
