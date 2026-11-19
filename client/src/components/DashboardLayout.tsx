@@ -160,130 +160,140 @@ function DashboardLayoutContent({
     };
   }, [isResizing, setSidebarWidth]);
 
+  const breadcrumbs = [
+    { label: "StoryTeller", path: "/" },
+    { label: activeMenuItem?.label || "Página", path: location },
+  ];
+
   return (
     <>
-      <div className="relative" ref={sidebarRef}>
-        <Sidebar
-          collapsible="icon"
-          className="border-r-0"
-          disableTransition={isResizing}
-        >
-          <SidebarHeader className="h-16 justify-center">
-            <div className="flex items-center gap-3 px-2 transition-all w-full">
+      {/* Azure DevOps style thin top header */}
+      <header className="h-12 border-b bg-card flex items-center px-4 fixed top-0 left-0 right-0 z-50">
+        <div className="flex items-center gap-4 flex-1">
+          <div className="flex items-center gap-2">
+            <img src="/logo.png" alt="StoryTeller" className="h-6 w-6" />
+            <span className="font-semibold text-sm">StoryTeller</span>
+          </div>
+          
+          {/* Breadcrumb */}
+          <nav className="flex items-center gap-1 text-sm text-muted-foreground">
+            {breadcrumbs.map((crumb, idx) => (
+              <div key={idx} className="flex items-center gap-1">
+                {idx > 0 && <span>/</span>}
+                <span className={idx === breadcrumbs.length - 1 ? "text-foreground" : ""}>
+                  {crumb.label}
+                </span>
+              </div>
+            ))}
+          </nav>
+        </div>
+
+        {/* User menu */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="flex items-center gap-2 hover:bg-accent/50 rounded px-2 py-1 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <Avatar className="h-7 w-7 border">
+                <AvatarFallback className="text-xs font-medium">
+                  {user?.name?.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-sm font-medium hidden md:inline-block">
+                {user?.name || "-"}
+              </span>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem
+              onClick={logout}
+              className="cursor-pointer text-destructive focus:text-destructive"
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>Sign out</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </header>
+
+      <div className="flex pt-12">
+        {/* Left navigation sidebar - Azure DevOps style */}
+        <div className="relative" ref={sidebarRef}>
+          <Sidebar
+            collapsible="icon"
+            className="border-r h-[calc(100vh-3rem)]"
+            disableTransition={isResizing}
+          >
+            <SidebarHeader className="h-12 justify-center px-0">
               <button
                 onClick={toggleSidebar}
-                className="h-8 w-8 flex items-center justify-center hover:bg-accent rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring shrink-0"
+                className="h-10 w-10 mx-auto flex items-center justify-center hover:bg-accent rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 aria-label="Toggle navigation"
               >
                 <PanelLeft className="h-4 w-4 text-muted-foreground" />
               </button>
-              {!isCollapsed ? (
-                <div className="flex items-center gap-2 min-w-0">
-                  <img
-                    src="/logo.png"
-                    alt="Story Teller"
-                    className="h-8 w-8 shrink-0"
-                  />
-                  <span className="font-semibold tracking-tight truncate">
-                    Story Teller
-                  </span>
-                </div>
-              ) : null}
-            </div>
-          </SidebarHeader>
+            </SidebarHeader>
 
-          <SidebarContent className="gap-0">
-            <SidebarMenu className="px-2 py-1">
-              {menuItems
-                .filter(item => {
-                  // Mostrar Config. LLM e Execuções apenas para admin
-                  if (
-                    item.path === "/config/llm" ||
-                    item.path === "/executions"
-                  ) {
-                    return user?.role === "admin";
-                  }
-                  return true;
-                })
-                .map(item => {
-                  const isActive = location === item.path;
-                  return (
-                    <SidebarMenuItem key={item.path}>
-                      <SidebarMenuButton
-                        isActive={isActive}
-                        onClick={() => setLocation(item.path)}
-                        tooltip={item.label}
-                        className={`h-10 transition-all font-normal`}
-                      >
-                        <item.icon
-                          className={`h-4 w-4 ${isActive ? "text-primary" : ""}`}
-                        />
-                        <span>{item.label}</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
-            </SidebarMenu>
-          </SidebarContent>
+            <SidebarContent className="gap-0 px-0">
+              <SidebarMenu className="py-1">
+                {menuItems
+                  .filter(item => {
+                    if (
+                      item.path === "/config/llm" ||
+                      item.path === "/executions"
+                    ) {
+                      return user?.role === "admin";
+                    }
+                    return true;
+                  })
+                  .map(item => {
+                    const isActive = location === item.path;
+                    return (
+                      <SidebarMenuItem key={item.path} className="relative">
+                        {/* Azure DevOps blue left accent bar */}
+                        {isActive && (
+                          <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary" />
+                        )}
+                        <SidebarMenuButton
+                          isActive={isActive}
+                          onClick={() => setLocation(item.path)}
+                          tooltip={item.label}
+                          className={`h-9 mx-1 px-2 font-normal text-sm ${
+                            isActive ? "bg-accent" : ""
+                          }`}
+                        >
+                          <item.icon
+                            className={`h-4 w-4 ${isActive ? "text-primary" : "text-muted-foreground"}`}
+                          />
+                          <span className={isActive ? "font-medium" : ""}>
+                            {item.label}
+                          </span>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
+              </SidebarMenu>
+            </SidebarContent>
 
-          <SidebarFooter className="p-3">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-3 rounded-lg px-1 py-1 hover:bg-accent/50 transition-colors w-full text-left group-data-[collapsible=icon]:justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                  <Avatar className="h-9 w-9 border shrink-0">
-                    <AvatarFallback className="text-xs font-medium">
-                      {user?.name?.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden">
-                    <p className="text-sm font-medium truncate leading-none">
-                      {user?.name || "-"}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate mt-1.5">
-                      {user?.email || "-"}
-                    </p>
-                  </div>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem
-                  onClick={logout}
-                  className="cursor-pointer text-destructive focus:text-destructive"
-                >
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Sign out</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </SidebarFooter>
-        </Sidebar>
-        <div
-          className={`absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary/20 transition-colors ${isCollapsed ? "hidden" : ""}`}
-          onMouseDown={() => {
-            if (isCollapsed) return;
-            setIsResizing(true);
-          }}
-          style={{ zIndex: 50 }}
-        />
-      </div>
-
-      <SidebarInset>
-        {isMobile && (
-          <div className="flex border-b h-14 items-center justify-between bg-background/95 px-2 backdrop-blur supports-[backdrop-filter]:backdrop-blur sticky top-0 z-40">
-            <div className="flex items-center gap-2">
-              <SidebarTrigger className="h-9 w-9 rounded-lg bg-background" />
-              <div className="flex items-center gap-3">
-                <div className="flex flex-col gap-1">
-                  <span className="tracking-tight text-foreground">
-                    {activeMenuItem?.label ?? "Menu"}
-                  </span>
-                </div>
+            <SidebarFooter className="p-2">
+              <div className="text-xs text-muted-foreground text-center group-data-[collapsible=icon]:hidden">
+                v1.0.0
               </div>
-            </div>
-          </div>
-        )}
-        <main className="flex-1 p-4">{children}</main>
-      </SidebarInset>
+            </SidebarFooter>
+          </Sidebar>
+          <div
+            className={`absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary/20 transition-colors ${isCollapsed ? "hidden" : ""}`}
+            onMouseDown={() => {
+              if (isCollapsed) return;
+              setIsResizing(true);
+            }}
+            style={{ zIndex: 50 }}
+          />
+        </div>
+
+        {/* Main content area */}
+        <SidebarInset className="flex-1">
+          <main className="p-6">{children}</main>
+        </SidebarInset>
+      </div>
     </>
   );
 }

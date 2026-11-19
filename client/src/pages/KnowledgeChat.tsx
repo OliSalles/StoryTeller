@@ -91,24 +91,25 @@ export function KnowledgeChat() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-8rem)] space-y-4">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold">Chat com Conhecimento</h1>
-            <p className="text-muted-foreground">
-              Faça perguntas sobre a base de conhecimento da empresa
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={createNewSession}>
-              Nova Conversa
+        {/* Azure DevOps style header */}
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Chat com Conhecimento</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Faça perguntas sobre a base de conhecimento da empresa
+          </p>
+        </div>
+
+        {/* Command bar */}
+        <div className="flex items-center gap-2 pb-2 border-b">
+          <Button size="sm" variant="outline" onClick={createNewSession}>
+            Nova Conversa
+          </Button>
+          <Link href="/knowledge">
+            <Button size="sm" variant="outline">
+              <ArrowLeft className="mr-2 h-3.5 w-3.5" />
+              Voltar
             </Button>
-            <Link href="/knowledge">
-              <Button variant="outline">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Voltar
-              </Button>
-            </Link>
-          </div>
+          </Link>
         </div>
 
         <Card className="flex-1 flex flex-col">
