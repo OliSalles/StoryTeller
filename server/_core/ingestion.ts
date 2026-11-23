@@ -316,7 +316,7 @@ export async function ingestTextContent(
   companyId: number,
   text: string,
   metadata: Record<string, any>
-): Promise<{ chunksCreated: number; embeddingsCreated: number }> {
+): Promise<{ chunksCreated: number; embeddingsCreated: number; merged: number }> {
   console.log(`[Ingestion] Processing text content: ${text.length} chars`);
   
   // Split into chunks
@@ -324,12 +324,85 @@ export async function ingestTextContent(
   console.log(`[Ingestion] Created ${chunks.length} chunks`);
   
   let embeddingsCreated = 0;
+  let merged = 0;
+  const exactThreshold = dedupThreshold();
+  const aiThreshold = exactThreshold === null ? null : aiMergeThreshold(exactThreshold);
+  const dedupe = metadata.fileType !== "code" && exactThreshold !== null;
+  let source: Awaited<ReturnType<typeof knowledgeDb.getKnowledgeSourceById>> | null = null;
+  const loadSource = async () => (source ??= (await knowledgeDb.getKnowledgeSourceById(sourceId)) ?? null);
   
-  // Process each chunk
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
-    
-    // Store chunk
+
+    let embedding: number[] | null = null;
+    try {
+      embedding = await generateEmbedding(chunk);
+    } catch (error) {
+      console.error(`[Ingestion] Failed to generate embedding for chunk ${i}:`, error);
+    }
+
+    if (embedding && dedupe) {
+      const dup = await knowledgeDb
+        .findNearDuplicateChunk(companyId, embedding, aiThreshold ?? exactThreshold!)
+        .catch((err) => {
+          console.warn(`[Ingestion] Checagem de duplicado falhou, gravando o trecho:`, err instanceof Error ? err.message : err);
+          return null;
+        });
+      if (dup) {
+        const pct = `${(dup.similarity * 100).toFixed(1)}%`;
+        const linkToExisting = async () => {
+          if (dup.sourceId === sourceId) return;
+          await knowledgeDb.addMergedSourceToChunk(dup.chunkId, {
+            sourceId,
+            sourceName: (await loadSource())?.name,
+            similarity: Math.round(dup.similarity * 1000) / 1000,
+            mergedAt: new Date().toISOString(),
+          });
+        };
+
+        if (dup.similarity >= exactThreshold!) {
+          await linkToExisting();
+          merged++;
+          console.log(`[Ingestion] Chunk ${i + 1}/${chunks.length} já existe (trecho ${dup.chunkId}, ${pct}): mesclado`);
+          continue;
+        }
+
+        const { aiMergeChunks, MAX_MERGED_CHARS } = await import("./knowledge-ai");
+        const decision = await aiMergeChunks(dup.content, chunk, (await loadSource())?.createdBy).catch((err) => {
+          console.warn(`[Ingestion] Mesclagem com IA falhou, gravando o trecho:`, err instanceof Error ? err.message : err);
+          return { decision: "different" as const };
+        });
+
+        if (decision.decision === "same") {
+          await linkToExisting();
+          merged++;
+          console.log(`[Ingestion] Chunk ${i + 1}/${chunks.length}: IA viu que o trecho ${dup.chunkId} já tem tudo (${pct})`);
+          continue;
+        }
+
+        if (decision.decision === "merge" && decision.merged.length <= MAX_MERGED_CHARS) {
+          try {
+            const meta = { ...(dup.metadata ?? {}) };
+            if (dup.sourceId !== sourceId) {
+              const contributions: knowledgeDb.ChunkContribution[] = Array.isArray(meta.contributions)
+                ? meta.contributions
+                : [{ sourceId: dup.sourceId, content: dup.content }];
+              meta.contributions = [...contributions.filter((c) => c.sourceId !== sourceId), { sourceId, content: chunk }];
+            }
+            meta.aiMerged = true;
+            const mergedEmbedding = await generateEmbedding(decision.merged);
+            await knowledgeDb.updateChunkContent(dup.chunkId, decision.merged, meta, mergedEmbedding);
+            await linkToExisting();
+            merged++;
+            console.log(`[Ingestion] Chunk ${i + 1}/${chunks.length} mesclado com IA no trecho ${dup.chunkId} (${pct})`);
+            continue;
+          } catch (err) {
+            console.warn(`[Ingestion] Não foi possível gravar a mesclagem, gravando o trecho:`, err instanceof Error ? err.message : err);
+          }
+        }
+      }
+    }
+
     const chunkId = await knowledgeDb.createKnowledgeChunk({
       sourceId,
       companyId,
@@ -342,30 +415,74 @@ export async function ingestTextContent(
       chunkIndex: i,
       tokenCount: Math.ceil(chunk.length / 4), // Rough estimate: 1 token ≈ 4 chars
     });
-    
-    // Generate and store embedding
-    try {
-      const embedding = await generateEmbedding(chunk);
-      
-      await knowledgeDb.createKnowledgeEmbedding({
-        chunkId,
-        companyId,
-        embedding: embedding as any, // pgvector will handle the array
-        model: process.env.OPENAI_EMBEDDING_MODEL || "text-embedding-3-small",
-      });
-      
-      embeddingsCreated++;
-      console.log(`[Ingestion] Processed chunk ${i + 1}/${chunks.length} (embeddings: ${embeddingsCreated})`);
-    } catch (error) {
-      console.error(`[Ingestion] Failed to generate embedding for chunk ${i}:`, error);
-      // Continue processing remaining chunks instead of throwing
-      // This allows partial success (some embeddings created)
-    }
+
+    if (!embedding) continue;
+    await knowledgeDb.createKnowledgeEmbedding({
+      chunkId,
+      companyId,
+      embedding: embedding as any, // pgvector will handle the array
+      model: process.env.OPENAI_EMBEDDING_MODEL || "text-embedding-3-small",
+    });
+    embeddingsCreated++;
+    console.log(`[Ingestion] Processed chunk ${i + 1}/${chunks.length} (embeddings: ${embeddingsCreated})`);
   }
   
-  console.log(`[Ingestion] Text content ingestion completed: ${chunks.length} chunks, ${embeddingsCreated} embeddings`);
+  console.log(
+    `[Ingestion] Text content ingestion completed: ${chunks.length - merged} chunks, ${embeddingsCreated} embeddings, ${merged} mesclados`
+  );
   
-  return { chunksCreated: chunks.length, embeddingsCreated };
+  return { chunksCreated: chunks.length - merged, embeddingsCreated, merged };
+}
+
+/**
+ * Similaridade a partir da qual um trecho novo é considerado repetido e mesclado
+ * no existente sem consultar a IA (KNOWLEDGE_DEDUP_THRESHOLD, padrão 0.985; "off" desliga).
+ * Precisa ser alto: uma frase a mais num trecho curto ainda dá ~95%.
+ */
+export function dedupThreshold(env: NodeJS.ProcessEnv = process.env): number | null {
+  const raw = (env.KNOWLEDGE_DEDUP_THRESHOLD ?? "").trim().toLowerCase();
+  if (["off", "0", "false", "no", "nao", "não"].includes(raw)) return null;
+  const n = Number(raw);
+  if (raw && Number.isFinite(n) && n > 0 && n <= 1) return n;
+  return 0.985;
+}
+
+/**
+ * Similaridade a partir da qual a IA compara os dois trechos e decide se mescla
+ * (KNOWLEDGE_AI_MERGE_THRESHOLD, padrão 0.85; "off" desliga). Nunca passa do limiar exato.
+ */
+export function aiMergeThreshold(exact: number, env: NodeJS.ProcessEnv = process.env): number | null {
+  const raw = (env.KNOWLEDGE_AI_MERGE_THRESHOLD ?? "").trim().toLowerCase();
+  if (["off", "0", "false", "no", "nao", "não"].includes(raw)) return null;
+  const n = Number(raw);
+  const value = raw && Number.isFinite(n) && n > 0 && n <= 1 ? n : 0.85;
+  return value < exact ? value : null;
+}
+
+/**
+ * Refaz trechos mesclados com IA depois que uma fonte que contribuiu saiu:
+ * volta ao texto original da fonte que sobrou ou mescla de novo as que restaram.
+ */
+export async function rebuildMergedChunks(chunkIds: number[]): Promise<void> {
+  const chunks = await knowledgeDb.getChunksByIds(chunkIds);
+  for (const chunk of chunks) {
+    const meta = { ...((chunk.metadata as Record<string, any>) ?? {}) };
+    const contributions: knowledgeDb.ChunkContribution[] = Array.isArray(meta.contributions) ? meta.contributions : [];
+    if (contributions.length === 0) continue;
+
+    let content: string;
+    if (contributions.length === 1) {
+      content = contributions[0].content;
+      delete meta.contributions;
+      delete meta.aiMerged;
+    } else {
+      const { aiCombineTexts } = await import("./knowledge-ai");
+      content = await aiCombineTexts(contributions.map((c) => c.content));
+    }
+    const embedding = await generateEmbedding(content);
+    await knowledgeDb.updateChunkContent(chunk.id, content, meta, embedding);
+    console.log(`[Ingestion] Trecho ${chunk.id} refeito a partir de ${contributions.length} contribuição(ões)`);
+  }
 }
 
 /**
@@ -463,11 +580,13 @@ export async function processKnowledgeSource(
       throw new Error(`Source ${sourceId} completed with 0 embeddings (${chunks.length} chunks created)`);
     }
     
-    // Update status to completed
+    const mergedChunks = await knowledgeDb.countChunksMergedIntoSource(sourceId).catch(() => 0);
+    const latest = await knowledgeDb.getKnowledgeSourceById(sourceId);
     await knowledgeDb.updateKnowledgeSource(sourceId, {
       status: 'completed',
       totalChunks: chunks.length,
       processedChunks: chunks.length,
+      metadata: { ...((latest?.metadata as Record<string, unknown>) ?? {}), mergedChunks },
     });
     
     console.log(`[Ingestion] Source ${sourceId} processing completed successfully`);

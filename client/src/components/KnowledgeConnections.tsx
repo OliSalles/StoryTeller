@@ -54,9 +54,15 @@ function StatusLine({ source }: { source: Source }) {
     if (m.lastCommit) details.push(`commit ${String(m.lastCommit).slice(0, 7)}`);
     if (m.filesIndexed) details.push(`${m.filesIndexed} arquivos`);
   } else if (m.framesIndexed !== undefined) {
-    details.push(`${m.framesIndexed} frames`, `${m.itemsIndexed ?? 0} itens`);
+    details.push(`${m.framesIndexed} frames`);
+    details.push(m.itemsWithText !== undefined ? `${m.itemsWithText}/${m.itemsIndexed ?? 0} itens com texto` : `${m.itemsIndexed ?? 0} itens`);
+    if (m.connectorsIndexed) details.push(`${m.connectorsIndexed} conectores`);
+    if (m.mindmapNodesIndexed) details.push(`${m.mindmapNodesIndexed} nós de mind map`);
+    if (m.imagesTotal) details.push(`${m.imagesDescribed ?? 0}/${m.imagesTotal} imagens lidas com IA`);
+    if (m.flowsDescribed) details.push(`${m.flowsDescribed} fluxos descritos com IA`);
   }
   details.push(`${source.chunksCount ?? source.totalChunks ?? 0} trechos`);
+  if (m.mergedChunks) details.push(`${m.mergedChunks} já existiam e foram mesclados`);
   const lastIndexed = formatDate(m.lastIndexedAt);
   if (lastIndexed) details.push(`indexado em ${lastIndexed}`);
 

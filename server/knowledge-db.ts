@@ -386,7 +386,10 @@ export async function getKnowledgeChunksPage(params: {
   if (!db) return { items: [], total: 0 };
 
   const conditions = [
-    eq(knowledgeChunks.sourceId, params.sourceId),
+    or(
+      eq(knowledgeChunks.sourceId, params.sourceId),
+      sql`${knowledgeChunks.metadata}->'alsoIn' @> ${JSON.stringify([{ sourceId: params.sourceId }])}::jsonb`
+    )!,
     eq(knowledgeChunks.companyId, params.companyId),
   ];
   const term = params.search?.trim();
@@ -499,7 +502,16 @@ export async function searchSimilarEmbeddings(
 export async function deleteKnowledgeEmbeddingsBySourceId(sourceId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  
+
+  // Trechos mesclados de outras fontes não podem sumir junto com esta
+  const toRebuild = await detachSourceFromMerges(sourceId);
+  if (toRebuild.length > 0) {
+    const { rebuildMergedChunks } = await import("./_core/ingestion");
+    await rebuildMergedChunks(toRebuild).catch((err) =>
+      console.error(`[Knowledge] Falha ao refazer trechos mesclados ${toRebuild.join(",")}:`, err)
+    );
+  }
+
   // First get all chunks for this source
   const chunks = await getKnowledgeChunksBySourceId(sourceId);
   const chunkIds = chunks.map(c => c.id);
@@ -507,6 +519,149 @@ export async function deleteKnowledgeEmbeddingsBySourceId(sourceId: number) {
   if (chunkIds.length > 0) {
     await db.delete(knowledgeEmbeddings).where(inArray(knowledgeEmbeddings.chunkId, chunkIds));
   }
+}
+
+// ============================================
+// Deduplicação de trechos
+// ============================================
+
+/** Outra fonte que também tinha este conteúdo; o trecho é guardado uma vez só */
+export type MergedSourceRef = { sourceId: number; sourceName?: string; similarity: number; mergedAt: string };
+
+/**
+ * Trecho já existente na empresa mais parecido com o embedding, se passar do limiar.
+ * Código fica de fora: o mesmo trecho em arquivos diferentes tem contexto diferente.
+ */
+export async function findNearDuplicateChunk(
+  companyId: number,
+  embedding: number[],
+  threshold: number
+): Promise<{ chunkId: number; sourceId: number; similarity: number; content: string; metadata: Record<string, any> | null } | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const embeddingStr = `[${embedding.join(",")}]`;
+  const result = await db.execute(sql`
+    SELECT kc.id AS chunk_id, kc.source_id, kc.content, kc.metadata,
+           1 - (ke.embedding <=> ${embeddingStr}::vector) AS similarity
+    FROM knowledge_embeddings ke
+    JOIN knowledge_chunks kc ON ke.chunk_id = kc.id
+    WHERE ke.company_id = ${companyId} AND COALESCE(kc.metadata->>'fileType', '') <> 'code'
+    ORDER BY ke.embedding <=> ${embeddingStr}::vector
+    LIMIT 1
+  `);
+  const row = (result.rows as any[])[0];
+  if (!row) return null;
+  const similarity = Number(row.similarity) || 0;
+  if (similarity < threshold) return null;
+  return {
+    chunkId: Number(row.chunk_id),
+    sourceId: Number(row.source_id),
+    similarity,
+    content: String(row.content ?? ""),
+    metadata: (row.metadata as Record<string, any>) ?? null,
+  };
+}
+
+/** Texto original que cada fonte trouxe para um trecho mesclado com IA */
+export type ChunkContribution = { sourceId: number; content: string };
+
+/** Troca o texto e o embedding de um trecho (mesclagem com IA ou refação dela) */
+export async function updateChunkContent(
+  chunkId: number,
+  content: string,
+  metadata: Record<string, any>,
+  embedding: number[]
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db
+    .update(knowledgeChunks)
+    .set({ content, metadata, tokenCount: Math.ceil(content.length / 4) })
+    .where(eq(knowledgeChunks.id, chunkId));
+  await db.execute(sql`
+    UPDATE knowledge_embeddings SET embedding = ${`[${embedding.join(",")}]`}::vector WHERE chunk_id = ${chunkId}
+  `);
+}
+
+/** Registra no trecho existente que outra fonte também tem esse conteúdo */
+export async function addMergedSourceToChunk(chunkId: number, ref: MergedSourceRef) {
+  const db = await getDb();
+  if (!db) return;
+  await db.execute(sql`
+    UPDATE knowledge_chunks
+    SET metadata = jsonb_set(
+      COALESCE(metadata, '{}'::jsonb),
+      '{alsoIn}',
+      COALESCE(metadata->'alsoIn', '[]'::jsonb) || ${JSON.stringify([ref])}::jsonb
+    )
+    WHERE id = ${chunkId}
+      AND source_id <> ${ref.sourceId}
+      AND NOT (COALESCE(metadata->'alsoIn', '[]'::jsonb) @> ${JSON.stringify([{ sourceId: ref.sourceId }])}::jsonb)
+  `);
+}
+
+/**
+ * Antes de apagar os trechos de uma fonte (exclusão ou reindexação):
+ * tira a fonte das mesclagens de outros trechos e passa para a próxima fonte
+ * os trechos dela que também pertencem a outras.
+ */
+export async function detachSourceFromMerges(sourceId: number): Promise<number[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const ref = JSON.stringify([{ sourceId }]);
+  await db.execute(sql`
+    UPDATE knowledge_chunks
+    SET metadata = jsonb_set(
+      metadata,
+      '{alsoIn}',
+      COALESCE(
+        (SELECT jsonb_agg(x) FROM jsonb_array_elements(metadata->'alsoIn') x WHERE (x->>'sourceId')::int <> ${sourceId}),
+        '[]'::jsonb
+      )
+    )
+    WHERE metadata->'alsoIn' @> ${ref}::jsonb
+  `);
+  await db.execute(sql`
+    UPDATE knowledge_chunks
+    SET source_id = (metadata->'alsoIn'->0->>'sourceId')::int,
+        metadata = jsonb_set(metadata, '{alsoIn}', (metadata->'alsoIn') - 0)
+    WHERE source_id = ${sourceId}
+      AND jsonb_typeof(metadata->'alsoIn') = 'array'
+      AND jsonb_array_length(metadata->'alsoIn') > 0
+  `);
+  // A contribuição da fonte sai do trecho; quem tinha texto mesclado com IA precisa ser refeito
+  const rebuild = await db.execute(sql`
+    UPDATE knowledge_chunks
+    SET metadata = jsonb_set(
+      metadata,
+      '{contributions}',
+      COALESCE(
+        (SELECT jsonb_agg(x) FROM jsonb_array_elements(metadata->'contributions') x WHERE (x->>'sourceId')::int <> ${sourceId}),
+        '[]'::jsonb
+      )
+    )
+    WHERE metadata->'contributions' @> ${ref}::jsonb
+      AND source_id <> ${sourceId}
+    RETURNING id
+  `);
+  return (rebuild.rows as any[]).map((r) => Number(r.id));
+}
+
+export async function getChunksByIds(ids: number[]) {
+  const db = await getDb();
+  if (!db || ids.length === 0) return [];
+  return db.select().from(knowledgeChunks).where(inArray(knowledgeChunks.id, ids));
+}
+
+/** Quantos trechos desta fonte foram mesclados em trechos que já existiam */
+export async function countChunksMergedIntoSource(sourceId: number): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+  const result = await db.execute(sql`
+    SELECT count(*)::int AS n FROM knowledge_chunks
+    WHERE metadata->'alsoIn' @> ${JSON.stringify([{ sourceId }])}::jsonb
+  `);
+  return Number((result.rows as any[])[0]?.n ?? 0);
 }
 
 // ============================================
