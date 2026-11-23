@@ -52,12 +52,12 @@ export function extractBoardId(url: string): string | null {
 }
 
 /**
- * Get Miro API token from environment
+ * Token da conexão (salvo na fonte) ou, se não houver, MIRO_ACCESS_TOKEN do servidor
  */
-function getMiroToken(): string {
-  const token = process.env.MIRO_ACCESS_TOKEN;
+function getMiroToken(sourceToken?: string | null): string {
+  const token = sourceToken || process.env.MIRO_ACCESS_TOKEN;
   if (!token) {
-    throw new Error('MIRO_ACCESS_TOKEN não configurado. Configure no .env.local');
+    throw new Error('Informe o token de acesso do Miro na conexão (ou configure MIRO_ACCESS_TOKEN no servidor).');
   }
   return token;
 }
@@ -65,8 +65,7 @@ function getMiroToken(): string {
 /**
  * Fetch all items from a Miro board
  */
-async function fetchBoardItems(boardId: string): Promise<MiroItem[]> {
-  const token = getMiroToken();
+async function fetchBoardItems(boardId: string, token: string): Promise<MiroItem[]> {
   const items: MiroItem[] = [];
   let cursor: string | undefined;
 
@@ -104,8 +103,7 @@ async function fetchBoardItems(boardId: string): Promise<MiroItem[]> {
 /**
  * Fetch frames from a Miro board
  */
-async function fetchBoardFrames(boardId: string): Promise<MiroFrame[]> {
-  const token = getMiroToken();
+async function fetchBoardFrames(boardId: string, token: string): Promise<MiroFrame[]> {
   const frames: MiroFrame[] = [];
   let cursor: string | undefined;
 
@@ -218,7 +216,8 @@ export async function ingestMiroBoard(
   sourceId: number,
   companyId: number,
   boardUrl: string,
-  onProgress?: (current: number, total: number) => void
+  onProgress?: (current: number, total: number) => void,
+  sourceToken?: string | null
 ): Promise<void> {
   console.log(`[Miro] Starting ingestion from board URL: ${boardUrl}`);
   
@@ -230,10 +229,10 @@ export async function ingestMiroBoard(
   
   console.log(`[Miro] Board ID: ${boardId}`);
   
-  // Fetch items and frames
+  const token = getMiroToken(sourceToken);
   const [items, frames] = await Promise.all([
-    fetchBoardItems(boardId),
-    fetchBoardFrames(boardId),
+    fetchBoardItems(boardId, token),
+    fetchBoardFrames(boardId, token),
   ]);
   
   console.log(`[Miro] Processing ${items.length} items in ${frames.length} frames`);
@@ -286,6 +285,17 @@ ${texts.join('\n\n')}
   }
   
   console.log(`[Miro] Ingestion completed: ${processed} frames processed`);
+
+  const fresh = await knowledgeDb.getKnowledgeSourceById(sourceId);
+  await knowledgeDb.updateKnowledgeSource(sourceId, {
+    metadata: {
+      ...((fresh?.metadata as Record<string, unknown>) ?? {}),
+      boardId,
+      lastIndexedAt: new Date().toISOString(),
+      framesIndexed: frames.length,
+      itemsIndexed: items.length,
+    },
+  });
 }
 
 /**

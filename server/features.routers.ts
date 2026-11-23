@@ -5,6 +5,7 @@ import { invokeLLM } from "./_core/llm";
 import * as db from "./db";
 import { generateFeaturePdf } from "./pdf";
 import { checkTokenLimit, getUserSubscriptionInfo } from "./_core/subscription-guard";
+import { buildFeatureKnowledgeContext, featureKnowledgeInstructions } from "./feature-knowledge-context";
 
 /**
  * Global map to store active AbortControllers by execution log ID
@@ -248,6 +249,16 @@ Return your response in the following JSON format:
       try {
         console.log('[GENERATE] Starting LLM invocation...');
 
+      const knowledge = await buildFeatureKnowledgeContext(input.prompt, ctx.user.id).catch((err) => {
+        console.warn('[GENERATE] Knowledge context failed, generating without it:', err);
+        return null;
+      });
+      const knowledgeInstructions = knowledge ? featureKnowledgeInstructions(knowledge, input.language) : "";
+      console.log(
+        '[GENERATE] Knowledge context:',
+        knowledge ? `${knowledge.sources} sources, ${knowledge.docChunks} doc chunks, ${knowledge.codeChunks} code chunks` : 'none'
+      );
+
       // Check if prompt is large (> 2000 characters) and needs to be split
       const CHUNK_SIZE = 2000;
       const isLargePrompt = input.prompt.length > CHUNK_SIZE;
@@ -277,7 +288,7 @@ Return your response in the following JSON format:
           const chunkStartTime = Date.now();
           const chunkPrompt = `You are processing part ${i + 1} of ${chunks.length} of a large feature description.
 
-${languageInstructions}
+${languageInstructions}${knowledgeInstructions}
 
 Part ${i + 1} content:
 ${chunk}
@@ -472,7 +483,7 @@ Generate user stories for this part only. Return JSON format:
         console.log(`[CHUNKS] Starting consolidation with timeout...`);
         const consolidationPrompt = `You are consolidating multiple parts of a feature specification.
 
-${languageInstructions}
+${languageInstructions}${knowledgeInstructions}
 
 Original full description:
 ${input.prompt}
@@ -605,7 +616,7 @@ ${input.technology !== 'Salesforce' ? `- For React/Angular/Vue: mention componen
 
       const systemPrompt = `You are an expert product manager and technical architect. Your task is to analyze user requirements and generate a comprehensive feature specification.
 
-${languageInstructions}${technologyInstructions}
+${languageInstructions}${technologyInstructions}${knowledgeInstructions}
 
 For the given requirement, you must:
 1. Create a clear feature title and description

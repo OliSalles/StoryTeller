@@ -430,7 +430,17 @@ export async function processKnowledgeSource(
       }
       
       const { ingestMiroBoard } = await import('./miro-ingestion');
-      await ingestMiroBoard(sourceId, source.companyId, source.sourceUrl, onProgress);
+      const tokenEnc = (source.metadata as any)?.tokenEnc as string | undefined;
+      let miroToken: string | null = null;
+      if (tokenEnc) {
+        const { decryptSecret } = await import('./secret-box');
+        try {
+          miroToken = decryptSecret(tokenEnc);
+        } catch {
+          throw new Error('Não foi possível ler o token do Miro salvo. Informe o token de novo na conexão.');
+        }
+      }
+      await ingestMiroBoard(sourceId, source.companyId, source.sourceUrl, onProgress, miroToken);
     }
     
     // Get final chunk count

@@ -8,7 +8,8 @@ import { Badge } from "../components/ui/badge";
 import { Progress } from "../components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { toast } from "sonner";
-import { FileText, Upload, Database, RefreshCw, Trash2, Eye, Search, GitBranch, Wrench } from "lucide-react";
+import { FileText, Upload, Database, RefreshCw, Trash2, Eye, Search, Wrench, Plug } from "lucide-react";
+import { KnowledgeConnections } from "../components/KnowledgeConnections";
 import { Switch } from "../components/ui/switch";
 import { Checkbox } from "../components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
@@ -23,16 +24,10 @@ export function KnowledgeBase() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [sourceName, setSourceName] = useState("");
   const [isUploading, setIsUploading] = useState(false);
-  const [miroBoardUrl, setMiroBoardUrl] = useState("");
-  const [miroName, setMiroName] = useState("");
   const [filterText, setFilterText] = useState("");
   const [filterType, setFilterType] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [viewing, setViewing] = useState<{ id: number; name: string } | null>(null);
-  const [gitUrl, setGitUrl] = useState("");
-  const [gitBranch, setGitBranch] = useState("");
-  const [gitName, setGitName] = useState("");
-  const [gitToken, setGitToken] = useState("");
   const [uploadTechDebt, setUploadTechDebt] = useState(false);
 
   const utils = trpc.useUtils();
@@ -100,32 +95,6 @@ export function KnowledgeBase() {
       utils.knowledge.listSources.invalidate();
     },
   });
-  const importMiroBoard = trpc.knowledge.importMiroBoard.useMutation({
-    onSuccess: () => {
-      toast.success("Importação do Miro iniciada!");
-      utils.knowledge.listSources.invalidate();
-      setMiroBoardUrl("");
-      setMiroName("");
-    },
-    onError: (error) => {
-      toast.error(error.message);
-    },
-  });
-
-  const connectGitRepo = trpc.knowledge.connectGitRepo.useMutation({
-    onSuccess: () => {
-      toast.success("Repositório conectado! A indexação do código começou.");
-      utils.knowledge.listSources.invalidate();
-      setGitUrl("");
-      setGitBranch("");
-      setGitName("");
-      setGitToken("");
-    },
-    onError: (error) => {
-      toast.error(error.message);
-    },
-  });
-
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -245,11 +214,24 @@ export function KnowledgeBase() {
               <Database className="mr-2 h-4 w-4" />
               Fontes
             </TabsTrigger>
+            <TabsTrigger value="connections">
+              <Plug className="mr-2 h-4 w-4" />
+              Conexões
+            </TabsTrigger>
             <TabsTrigger value="upload">
               <Upload className="mr-2 h-4 w-4" />
               Upload
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="connections">
+            <KnowledgeConnections
+              sources={(sources ?? []) as any}
+              canManage={canManage}
+              miroServerToken={settings?.miroServerToken ?? false}
+              onView={setViewing}
+            />
+          </TabsContent>
 
           <TabsContent value="upload" className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -306,131 +288,6 @@ export function KnowledgeBase() {
                   >
                     {isUploading ? "Enviando..." : "Fazer Upload"}
                   </Button>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <GitBranch className="h-4 w-4" />
-                    Conectar repositório Git (código)
-                  </CardTitle>
-                  <CardDescription>
-                    O chat passa a consultar o código quando a pergunta pedir. Use Reindexar para buscar a versão mais nova.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="git-url">URL do repositório</Label>
-                    <Input
-                      id="git-url"
-                      placeholder="https://github.com/empresa/projeto"
-                      value={gitUrl}
-                      onChange={(e) => setGitUrl(e.target.value)}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="git-branch">Branch (opcional)</Label>
-                      <Input
-                        id="git-branch"
-                        placeholder="main"
-                        value={gitBranch}
-                        onChange={(e) => setGitBranch(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="git-name">Nome (opcional)</Label>
-                      <Input
-                        id="git-name"
-                        placeholder="Backend"
-                        value={gitName}
-                        onChange={(e) => setGitName(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="git-token">Token de acesso (para repositório privado)</Label>
-                    <Input
-                      id="git-token"
-                      type="password"
-                      autoComplete="off"
-                      placeholder="ghp_... ou github_pat_..."
-                      value={gitToken}
-                      onChange={(e) => setGitToken(e.target.value)}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Fica guardado criptografado no servidor e nunca é mostrado de novo. Basta permissão de leitura do conteúdo.
-                    </p>
-                  </div>
-                  <Button
-                    onClick={() => {
-                      if (!gitUrl.trim()) {
-                        toast.error("Digite a URL do repositório");
-                        return;
-                      }
-                      connectGitRepo.mutate({
-                        repoUrl: gitUrl.trim(),
-                        branch: gitBranch.trim() || undefined,
-                        name: gitName.trim() || undefined,
-                        token: gitToken.trim() || undefined,
-                      });
-                    }}
-                    disabled={connectGitRepo.isPending}
-                    className="w-full"
-                  >
-                    <GitBranch className="mr-2 h-4 w-4" />
-                    {connectGitRepo.isPending ? "Conectando..." : "Conectar e indexar"}
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Importar Miro Board</CardTitle>
-                  <CardDescription>
-                    Conecte um board do Miro via URL
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="miro-name">Nome (opcional)</Label>
-                    <Input
-                      id="miro-name"
-                      placeholder="Board de Planejamento"
-                      value={miroName}
-                      onChange={(e) => setMiroName(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="miro-url">URL do Board</Label>
-                    <Input
-                      id="miro-url"
-                      placeholder="https://miro.com/app/board/..."
-                      value={miroBoardUrl}
-                      onChange={(e) => setMiroBoardUrl(e.target.value)}
-                    />
-                  </div>
-                  <Button
-                    onClick={() => {
-                      if (!miroBoardUrl) {
-                        toast.error("Digite a URL do board do Miro");
-                        return;
-                      }
-                      importMiroBoard.mutate({
-                        boardUrl: miroBoardUrl,
-                        name: miroName || undefined,
-                      });
-                    }}
-                    disabled={importMiroBoard.isPending}
-                    className="w-full"
-                  >
-                    <Upload className="mr-2 h-4 w-4" />
-                    {importMiroBoard.isPending ? "Importando..." : "Importar do Miro"}
-                  </Button>
-                  <p className="text-sm text-muted-foreground">
-                    Requer MIRO_ACCESS_TOKEN configurado
-                  </p>
                 </CardContent>
               </Card>
 

@@ -59,6 +59,7 @@ export const knowledgeRouter = router({
       globallyDisabled: techDebtGloballyDisabled(),
       available: settings.available,
       canManage: isCompanyManager(ctx),
+      miroServerToken: Boolean(process.env.MIRO_ACCESS_TOKEN),
     };
   }),
 
@@ -461,6 +462,8 @@ export const knowledgeRouter = router({
     .input(
       z.object({
         sourceId: z.number(),
+        name: z.string().trim().min(1).max(200).optional(),
+        repoUrl: gitRepoUrlSchema.optional(),
         branch: z.string().trim().max(200).optional(),
         token: z.string().trim().max(500).optional(),
       })
@@ -473,12 +476,20 @@ export const knowledgeRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Repositório não encontrado" });
       }
       const next: Record<string, any> = { ...meta };
+      let sourceUrl = source.sourceUrl;
+      if (input.repoUrl !== undefined) {
+        const gh = parseGithubRepo(input.repoUrl);
+        sourceUrl = gh ? `https://github.com/${gh.owner}/${gh.repo}` : input.repoUrl.replace(/\/+$/, "");
+        next.repoUrl = sourceUrl;
+      }
       if (input.branch !== undefined) next.branch = input.branch || null;
       if (input.token !== undefined) next.tokenEnc = input.token ? encryptSecret(input.token) : null;
 
       await knowledgeDb.deleteKnowledgeEmbeddingsBySourceId(input.sourceId);
       await knowledgeDb.deleteKnowledgeChunksBySourceId(input.sourceId);
       await knowledgeDb.updateKnowledgeSource(input.sourceId, {
+        ...(input.name ? { name: input.name } : {}),
+        sourceUrl,
         metadata: next,
         status: "pending",
         processedChunks: 0,
@@ -500,6 +511,7 @@ export const knowledgeRouter = router({
         boardUrl: z.string().url("URL inválida"),
         name: z.string().optional(),
         teamId: z.number().optional(),
+        token: z.string().trim().max(500).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -523,7 +535,12 @@ export const knowledgeRouter = router({
         type: 'miro_board',
         status: 'pending',
         sourceUrl: input.boardUrl,
-        metadata: { boardId },
+        metadata: {
+          kind: "miro",
+          boardId,
+          tokenEnc: input.token ? encryptSecret(input.token) : null,
+          connectedAt: new Date().toISOString(),
+        },
         createdBy: ctx.user.id,
       });
 
@@ -533,5 +550,56 @@ export const knowledgeRouter = router({
       });
 
       return { sourceId, boardId, message: "Importação do Miro iniciada" };
+    }),
+
+  /**
+   * Atualiza nome, URL e/ou token de um board do Miro conectado e reimporta.
+   * token: string nova substitui, string vazia remove, ausente mantém.
+   */
+  updateMiroBoard: tenantProcedure
+    .input(
+      z.object({
+        sourceId: z.number(),
+        name: z.string().trim().min(1).max(200).optional(),
+        boardUrl: z.string().trim().url("URL inválida").optional(),
+        token: z.string().trim().max(500).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const source = await knowledgeDb.getKnowledgeSourceById(input.sourceId);
+      if (!source || source.companyId !== ctx.tenant.companyId || source.type !== "miro_board") {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Board do Miro não encontrado" });
+      }
+      const next: Record<string, any> = { ...((source.metadata ?? {}) as Record<string, any>), kind: "miro" };
+      let sourceUrl = source.sourceUrl;
+      if (input.boardUrl !== undefined) {
+        const { extractBoardId } = await import("./_core/miro-ingestion");
+        const boardId = extractBoardId(input.boardUrl);
+        if (!boardId) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "URL do Miro inválida. Use o formato: https://miro.com/app/board/<id>/",
+          });
+        }
+        sourceUrl = input.boardUrl;
+        next.boardId = boardId;
+      }
+      if (input.token !== undefined) next.tokenEnc = input.token ? encryptSecret(input.token) : null;
+
+      await knowledgeDb.deleteKnowledgeEmbeddingsBySourceId(input.sourceId);
+      await knowledgeDb.deleteKnowledgeChunksBySourceId(input.sourceId);
+      await knowledgeDb.updateKnowledgeSource(input.sourceId, {
+        ...(input.name ? { name: input.name } : {}),
+        sourceUrl,
+        metadata: next,
+        status: "pending",
+        processedChunks: 0,
+        totalChunks: 0,
+        errorMessage: null,
+      });
+      processKnowledgeSource(input.sourceId).catch((error) => {
+        console.error(`[Knowledge] Failed to reimport Miro board ${input.sourceId}:`, error instanceof Error ? error.message : error);
+      });
+      return { success: true };
     }),
 });
