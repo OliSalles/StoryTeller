@@ -8,6 +8,7 @@ import { configRouter } from "./config.routers";
 import { featuresRouter } from "./features.routers";
 import { executionsRouter } from "./executions.routers";
 import { authRouter } from "./auth.routers";
+import { toPublicUser } from "./_core/public-user";
 import { tokensRouter } from "./tokens.routers";
 import { subscriptionsRouter } from "./subscriptions.routers";
 import { checkoutSyncRouter } from "./checkout-sync.routers";
@@ -24,7 +25,8 @@ export const appRouter = router({
   azureDevOps: azureDevOpsRouter,
   azureDevOpsImproved: azureDevOpsImprovedRouter,
   auth: router({
-    me: publicProcedure.query(opts => opts.ctx.user),
+    // Nunca devolver a senha (hash) para o cliente
+    me: publicProcedure.query(opts => toPublicUser(opts.ctx.user)),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
