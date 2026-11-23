@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useSearch } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,13 +13,22 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Eye, EyeOff } from "lucide-react";
+import { Building2, Eye, EyeOff } from "lucide-react";
 import { usePageSeo } from "@/hooks/usePageSeo";
 
 export default function Register() {
   const [, setLocation] = useLocation();
+  const inviteToken = new URLSearchParams(useSearch()).get("invite") ?? "";
+  const { data: invite } = trpc.companies.inviteInfo.useQuery(
+    { token: inviteToken },
+    { enabled: inviteToken.length >= 10, retry: false }
+  );
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+
+  useEffect(() => {
+    if (invite?.email) setEmail(invite.email);
+  }, [invite?.email]);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -34,11 +43,11 @@ export default function Register() {
   });
 
   const registerMutation = trpc.auth.register.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (res) => {
       // Invalidar cache do usuário
       await utils.auth.me.invalidate();
       // Redirecionar com reload para garantir que o cookie seja lido
-      window.location.href = "/generate";
+      window.location.href = res.joinedCompanies > 0 ? "/knowledge/chat" : "/generate";
     },
     onError: err => {
       setError(err.message);
@@ -81,6 +90,16 @@ export default function Register() {
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
+            {invite && (
+              <Alert>
+                <Building2 className="h-4 w-4" />
+                <AlertDescription>
+                  {invite.invitedByName ? `${invite.invitedByName} convidou você` : "Você foi convidado"} para a empresa{" "}
+                  <strong>{invite.companyName}</strong>. Ao criar a conta você entra nela automaticamente, com a sua própria assinatura.
+                </AlertDescription>
+              </Alert>
+            )}
+
             {error && (
               <Alert variant="destructive">
                 <AlertDescription>{error}</AlertDescription>
@@ -109,8 +128,14 @@ export default function Register() {
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 disabled={registerMutation.isPending}
+                readOnly={Boolean(invite)}
                 autoComplete="email"
               />
+              {invite && (
+                <p className="text-xs text-muted-foreground">
+                  Use este email para entrar na empresa automaticamente.
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">

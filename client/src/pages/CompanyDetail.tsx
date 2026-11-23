@@ -10,7 +10,8 @@ import { Badge } from "../components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { toast } from "sonner";
-import { ArrowLeft, Building2, Crown, Database, Loader2, Save, ShieldCheck, Trash2, UserPlus, Users } from "lucide-react";
+import { AzureDevOpsSettings } from "../components/AzureDevOpsSettings";
+import { ArrowLeft, Building2, Cloud, Crown, Database, Loader2, Mail, Save, Send, ShieldCheck, Trash2, UserPlus, Users, X } from "lucide-react";
 
 const ROLE_LABELS: Record<string, string> = {
   owner: "Proprietário",
@@ -28,6 +29,10 @@ export function CompanyDetail() {
   const membersQuery = trpc.companies.listMembers.useQuery({ companyId }, { enabled: Number.isInteger(companyId) });
   const { data: me } = trpc.auth.me.useQuery();
   const company = companyQuery.data;
+  const invitesQuery = trpc.companies.listInvites.useQuery(
+    { companyId },
+    { enabled: Boolean(company?.canManage) }
+  );
 
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
@@ -44,6 +49,7 @@ export function CompanyDetail() {
   const refresh = () => {
     utils.companies.getById.invalidate({ id: companyId });
     utils.companies.listMembers.invalidate({ companyId });
+    utils.companies.listInvites.invalidate({ companyId });
     utils.companies.list.invalidate();
   };
   const onError = (error: { message: string }) => toast.error(error.message);
@@ -57,9 +63,27 @@ export function CompanyDetail() {
   });
   const invite = trpc.companies.inviteMember.useMutation({
     onSuccess: (res) => {
-      toast.success(`${res.name || res.email} agora faz parte da empresa`);
+      if (res.status === "added") {
+        toast.success(`${res.name || res.email} já tinha conta e agora faz parte da empresa`);
+      } else if (res.emailSent) {
+        toast.success(`Convite enviado para ${res.email}. Ao se cadastrar, a pessoa entra na empresa automaticamente.`);
+      } else {
+        toast.warning(`Convite criado para ${res.email}, mas o email não pôde ser enviado. Use "Reenviar" ou peça para a pessoa se cadastrar com esse email.`);
+      }
       setInviteEmail("");
       setInviteRole("member");
+      refresh();
+    },
+    onError,
+  });
+  const resendInvite = trpc.companies.resendInvite.useMutation({
+    onSuccess: (res) =>
+      res.emailSent ? toast.success("Convite reenviado") : toast.warning("Não foi possível enviar o email agora"),
+    onError,
+  });
+  const cancelInvite = trpc.companies.cancelInvite.useMutation({
+    onSuccess: () => {
+      toast.success("Convite cancelado");
       refresh();
     },
     onError,
@@ -151,11 +175,10 @@ export function CompanyDetail() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {[
           { label: "Funcionários", value: stats.members },
           { label: "Administradores", value: stats.admins },
-          { label: "Times", value: stats.teams },
           { label: "Fontes na base", value: stats.sources },
           { label: "Trechos indexados", value: stats.chunks },
         ].map((s) => (
@@ -295,10 +318,58 @@ export function CompanyDetail() {
                     disabled={invite.isPending || !inviteEmail.trim()}
                     onClick={() => invite.mutate({ companyId, email: inviteEmail.trim(), role: inviteRole })}
                   >
-                    Adicionar
+                    {invite.isPending ? "Enviando..." : "Adicionar"}
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">A pessoa precisa ter uma conta no Story Teller com esse email.</p>
+                <p className="text-xs text-muted-foreground">
+                  Se a pessoa ainda não tiver conta, ela recebe um convite por email e entra na empresa automaticamente ao se cadastrar.
+                  Cada funcionário tem a sua própria assinatura.
+                </p>
+              </div>
+            )}
+
+            {canManage && (invitesQuery.data?.length ?? 0) > 0 && (
+              <div className="space-y-2">
+                <p className="flex items-center gap-1 text-sm font-medium">
+                  <Mail className="h-4 w-4" /> Convites pendentes
+                </p>
+                <div className="divide-y rounded-md border">
+                  {invitesQuery.data!.map((inv) => (
+                    <div key={inv.id} className="flex flex-wrap items-center justify-between gap-2 p-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{inv.email}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {ROLE_LABELS[inv.role] ?? inv.role} · enviado em{" "}
+                          {new Date(inv.lastSentAt).toLocaleDateString("pt-BR")}
+                          {inv.invitedByName ? ` por ${inv.invitedByName}` : ""} · aguardando cadastro
+                        </p>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={resendInvite.isPending}
+                          onClick={() => resendInvite.mutate({ companyId, inviteId: inv.id })}
+                        >
+                          <Send className="mr-1 h-4 w-4" /> Reenviar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive"
+                          disabled={cancelInvite.isPending}
+                          onClick={() => {
+                            if (confirm(`Cancelar o convite para ${inv.email}?`)) {
+                              cancelInvite.mutate({ companyId, inviteId: inv.id });
+                            }
+                          }}
+                        >
+                          <X className="mr-1 h-4 w-4" /> Cancelar
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </CardContent>
@@ -350,7 +421,7 @@ export function CompanyDetail() {
                 <strong>Proprietário:</strong> tudo que o administrador faz, além de transferir a propriedade e excluir a empresa.
               </p>
               <p>
-                <strong>Administrador:</strong> altera a base de conhecimento (upload, Git, Miro, reindexar, excluir), os dados da empresa e os funcionários.
+                <strong>Administrador:</strong> altera a base de conhecimento (upload, Git, Miro, reindexar, excluir), a conexão Azure DevOps, os dados da empresa e os funcionários.
               </p>
               <p>
                 <strong>Membro:</strong> consulta a base, usa o chat e gera features com ela, sem alterar nada.
@@ -359,6 +430,22 @@ export function CompanyDetail() {
           </Card>
         </div>
       </div>
+
+      {company.isActive ? (
+        <AzureDevOpsSettings />
+      ) : (
+        <Card>
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
+            <p className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Cloud className="h-4 w-4 shrink-0" />
+              Para ver e configurar a conexão Azure DevOps desta empresa, passe a usá-la.
+            </p>
+            <Button variant="outline" onClick={useThisCompany}>
+              Usar esta empresa
+            </Button>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

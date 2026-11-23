@@ -9,6 +9,7 @@ import { users } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 import crypto from "crypto";
 import sgMail from "@sendgrid/mail";
+import { acceptPendingInvitesForUser } from "./knowledge-db";
 
 const JWT_SECRET = new TextEncoder().encode(ENV.cookieSecret);
 
@@ -20,6 +21,16 @@ async function createJWT(userId: number, email: string) {
     .sign(JWT_SECRET);
   
   return token;
+}
+
+/** Entra nas empresas que convidaram este email; falha aqui não pode impedir cadastro/login */
+async function acceptInvitesSafely(userId: number, email: string): Promise<number[]> {
+  try {
+    return await acceptPendingInvitesForUser(userId, email);
+  } catch (err) {
+    console.error("[Invites] Falha ao aceitar convites de", email, err);
+    return [];
+  }
 }
 
 export const authRouter = router({
@@ -81,6 +92,8 @@ export const authRouter = router({
         });
       }
 
+      const joinedCompanies = await acceptInvitesSafely(userId, email);
+
       // Criar JWT token
       const token = await createJWT(userId, email);
 
@@ -91,6 +104,7 @@ export const authRouter = router({
       return {
         success: true,
         message: "Usuário criado com sucesso",
+        joinedCompanies: joinedCompanies.length,
       };
     }),
 
@@ -121,6 +135,9 @@ export const authRouter = router({
         email: user.email,
         lastSignedIn: new Date(),
       });
+
+      // Convites feitos depois que a conta já existia (ex.: email cadastrado por outro caminho)
+      await acceptInvitesSafely(user.id, user.email);
 
       // Criar JWT token
       const token = await createJWT(user.id, user.email);

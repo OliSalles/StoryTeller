@@ -5,7 +5,7 @@ import { GlassCard } from "@/components/GlassCard";
 import { trpc } from "@/lib/trpc";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { Loader2, Eye, EyeOff, Plus, Trash2, Edit2, Save, X, Lock } from "lucide-react";
+import { Cloud, Loader2, Eye, EyeOff, Plus, Trash2, Edit2, Save, X, Lock } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -15,7 +15,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-export default function AzureDevOpsConfigNew() {
+/** Conexão Azure DevOps da empresa em uso (o servidor resolve a empresa pelo x-company-id) */
+export function AzureDevOpsSettings() {
   const { data: fullConfig, isLoading, refetch } = trpc.azureDevOpsImproved.getFullConfig.useQuery();
   
   // Mutations
@@ -139,17 +140,19 @@ export default function AzureDevOpsConfigNew() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="flex items-center justify-center py-12">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
-        <h1 className="text-3xl font-bold">Azure DevOps</h1>
-        <p className="text-muted-foreground mt-2">
+        <h2 className="flex items-center gap-2 text-xl font-semibold tracking-tight">
+          <Cloud className="h-5 w-5 text-primary" /> Azure DevOps
+        </h2>
+        <p className="text-sm text-muted-foreground mt-1">
           Conexão da empresa{currentCompany ? ` ${currentCompany.name}` : ""}: vale para todos os funcionários na hora de exportar
         </p>
       </div>

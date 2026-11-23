@@ -2,13 +2,15 @@
  * Database functions for Knowledge Base and Multi-Tenant features
  */
 
-import { eq, desc, asc, and, sql, or, inArray, ilike } from "drizzle-orm";
+import { eq, desc, asc, and, sql, or, inArray, ilike, isNull } from "drizzle-orm";
+import { randomBytes } from "crypto";
 import { getDb } from "./db";
 import {
   companies,
   InsertCompany,
   companyMembers,
   InsertCompanyMember,
+  companyInvites,
   teams,
   InsertTeam,
   teamMembers,
@@ -147,6 +149,131 @@ export async function deleteCompany(id: number) {
 // ============================================
 // Company Member queries
 // ============================================
+
+// ============================================
+// Company invites (pessoas sem conta ainda)
+// ============================================
+
+/** Cria o convite pendente ou atualiza o nível de um que já existe; o token continua o mesmo */
+export async function upsertCompanyInvite(data: {
+  companyId: number;
+  email: string;
+  role: "member" | "admin";
+  invitedBy: number;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const email = data.email.trim().toLowerCase();
+
+  const existing = await db
+    .select()
+    .from(companyInvites)
+    .where(and(eq(companyInvites.companyId, data.companyId), eq(companyInvites.email, email), isNull(companyInvites.acceptedAt)))
+    .limit(1);
+  if (existing[0]) {
+    const [updated] = await db
+      .update(companyInvites)
+      .set({ role: data.role, invitedBy: data.invitedBy, lastSentAt: new Date() })
+      .where(eq(companyInvites.id, existing[0].id))
+      .returning();
+    return updated;
+  }
+
+  const [created] = await db
+    .insert(companyInvites)
+    .values({ ...data, email, token: randomBytes(24).toString("hex") })
+    .returning();
+  return created;
+}
+
+export async function listPendingCompanyInvites(companyId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({
+      id: companyInvites.id,
+      email: companyInvites.email,
+      role: companyInvites.role,
+      createdAt: companyInvites.createdAt,
+      lastSentAt: companyInvites.lastSentAt,
+      invitedByName: sql<string | null>`(select name from users where users.id = ${companyInvites.invitedBy})`,
+    })
+    .from(companyInvites)
+    .where(and(eq(companyInvites.companyId, companyId), isNull(companyInvites.acceptedAt)))
+    .orderBy(desc(companyInvites.createdAt));
+}
+
+export async function getPendingCompanyInvite(companyId: number, inviteId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db
+    .select()
+    .from(companyInvites)
+    .where(and(eq(companyInvites.id, inviteId), eq(companyInvites.companyId, companyId), isNull(companyInvites.acceptedAt)))
+    .limit(1);
+  return result[0] ?? null;
+}
+
+export async function touchCompanyInvite(inviteId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(companyInvites).set({ lastSentAt: new Date() }).where(eq(companyInvites.id, inviteId));
+}
+
+export async function deleteCompanyInvite(companyId: number, inviteId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db
+    .delete(companyInvites)
+    .where(and(eq(companyInvites.id, inviteId), eq(companyInvites.companyId, companyId), isNull(companyInvites.acceptedAt)));
+}
+
+/** Dados públicos do convite para a tela de cadastro */
+export async function getPendingInviteByToken(token: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db
+    .select({
+      email: companyInvites.email,
+      companyName: companies.name,
+      invitedByName: sql<string | null>`(select name from users where users.id = ${companyInvites.invitedBy})`,
+    })
+    .from(companyInvites)
+    .innerJoin(companies, eq(companies.id, companyInvites.companyId))
+    .where(and(eq(companyInvites.token, token), isNull(companyInvites.acceptedAt)))
+    .limit(1);
+  return result[0] ?? null;
+}
+
+/**
+ * Converte os convites pendentes do email em memberships. Chamado no cadastro e no login.
+ * Retorna as empresas em que a pessoa entrou.
+ */
+export async function acceptPendingInvitesForUser(userId: number, email: string): Promise<number[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const pending = await db
+    .select()
+    .from(companyInvites)
+    .where(and(eq(companyInvites.email, email.trim().toLowerCase()), isNull(companyInvites.acceptedAt)));
+
+  const joined: number[] = [];
+  for (const invite of pending) {
+    await db.transaction(async (tx) => {
+      const already = await tx
+        .select({ id: companyMembers.id })
+        .from(companyMembers)
+        .where(and(eq(companyMembers.companyId, invite.companyId), eq(companyMembers.userId, userId)))
+        .limit(1);
+      if (!already[0]) {
+        await tx.insert(companyMembers).values({ companyId: invite.companyId, userId, role: invite.role });
+        joined.push(invite.companyId);
+      }
+      await tx.update(companyInvites).set({ acceptedAt: new Date() }).where(eq(companyInvites.id, invite.id));
+    });
+  }
+  return joined;
+}
 
 export async function addCompanyMember(member: InsertCompanyMember) {
   const db = await getDb();

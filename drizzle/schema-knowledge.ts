@@ -55,6 +55,24 @@ export type CompanyMember = typeof companyMembers.$inferSelect;
 export type InsertCompanyMember = typeof companyMembers.$inferInsert;
 
 /**
+ * Convites para quem ainda não tem conta: ao se cadastrar (ou entrar) com o email,
+ * a pessoa vira membro da empresa com o nível do convite.
+ */
+export const companyInvites = pgTable("company_invites", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  email: varchar("email", { length: 320 }).notNull(), // sempre minúsculo
+  role: companyRoleEnum("role").notNull().default("member"),
+  token: varchar("token", { length: 64 }).notNull().unique(),
+  invitedBy: integer("invited_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  lastSentAt: timestamp("last_sent_at").defaultNow().notNull(),
+  acceptedAt: timestamp("accepted_at"),
+});
+
+export type CompanyInvite = typeof companyInvites.$inferSelect;
+
+/**
  * Teams - organize members within a company
  */
 export const teams = pgTable("teams", {

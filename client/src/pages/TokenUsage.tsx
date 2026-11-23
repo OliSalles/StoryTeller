@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { trpc } from "@/lib/trpc";
-import { Loader2, TrendingUp, DollarSign, Activity } from "lucide-react";
+import { Loader2, TrendingUp, DollarSign, Activity, ArrowLeft } from "lucide-react";
+import { Link } from "wouter";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -50,13 +51,21 @@ export default function TokenUsage({ embedded = false }: { embedded?: boolean })
     .slice(-14); // Últimos 14 dias
 
   return (
-    <div className={embedded ? "space-y-6" : "container mx-auto p-6 space-y-6"}>
+    <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
           {embedded ? (
             <h2 className="text-lg font-semibold">Uso de tokens</h2>
           ) : (
-            <h1 className="text-3xl font-bold">Uso de Tokens</h1>
+            <>
+              <Link
+                href="/account/subscription"
+                className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
+              >
+                <ArrowLeft className="mr-1 h-3.5 w-3.5" /> Planos e Assinatura
+              </Link>
+              <h1 className="text-3xl font-bold">Uso de Tokens</h1>
+            </>
           )}
           <p className={`text-muted-foreground ${embedded ? "text-sm" : "mt-1"}`}>
             Acompanhe o consumo de tokens da API de LLM
@@ -76,7 +85,7 @@ export default function TokenUsage({ embedded = false }: { embedded?: boolean })
       </div>
 
       {/* Cards de Estatísticas */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className={`grid gap-4 ${isAdmin ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total de Tokens</CardTitle>

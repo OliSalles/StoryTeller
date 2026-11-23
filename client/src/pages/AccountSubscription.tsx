@@ -10,84 +10,53 @@ import { Progress } from "@/components/ui/progress";
 import {
   Loader2,
   CreditCard,
-  TrendingUp,
   Calendar,
   ExternalLink,
-  Zap,
+  BarChart3,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { useLocation, useSearch } from "wouter";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useEffect, useState } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useEffect, useRef } from "react";
 import { PricingPlans } from "./Pricing";
-import TokenUsage from "./TokenUsage";
-
-const TABS = ["plano", "planos", "uso"] as const;
-type Tab = (typeof TABS)[number];
-
-function tabFromSearch(search: string): Tab {
-  const value = new URLSearchParams(search).get("tab");
-  return (TABS as readonly string[]).includes(value ?? "") ? (value as Tab) : "plano";
-}
 
 export default function AccountSubscription() {
-  const [, setLocation] = useLocation();
   const search = useSearch();
-  const [tab, setTab] = useState<Tab>(() => tabFromSearch(search));
+  const plansRef = useRef<HTMLDivElement>(null);
 
+  const scrollToPlans = () =>
+    plansRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+
+  // Links antigos (?tab=planos) caem direto na lista de planos
   useEffect(() => {
-    setTab(tabFromSearch(search));
+    if (new URLSearchParams(search).get("tab") === "planos") {
+      const timer = setTimeout(scrollToPlans, 300);
+      return () => clearTimeout(timer);
+    }
   }, [search]);
 
-  const changeTab = (next: string) => {
-    const value = next as Tab;
-    setTab(value);
-    setLocation(`/account/subscription${value === "plano" ? "" : `?tab=${value}`}`, { replace: true });
-  };
-
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Planos e Assinatura</h1>
         <p className="text-muted-foreground mt-1">
-          Seu plano atual, os planos disponíveis e o consumo de tokens
+          Seu plano atual, o consumo de tokens e os planos disponíveis
         </p>
       </div>
 
-      <Tabs value={tab} onValueChange={changeTab} className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="plano">
-            <CreditCard className="mr-2 h-4 w-4" />
-            Plano atual
-          </TabsTrigger>
-          <TabsTrigger value="planos">
-            <Zap className="mr-2 h-4 w-4" />
-            Planos
-          </TabsTrigger>
-          <TabsTrigger value="uso">
-            <TrendingUp className="mr-2 h-4 w-4" />
-            Uso de tokens
-          </TabsTrigger>
-        </TabsList>
+      <CurrentPlan onSeePlans={scrollToPlans} />
 
-        <TabsContent value="plano">
-          <CurrentPlan onSeePlans={() => changeTab("planos")} onSeeUsage={() => changeTab("uso")} />
-        </TabsContent>
-        <TabsContent value="planos">
-          <PricingPlans embedded />
-        </TabsContent>
-        <TabsContent value="uso">
-          <TokenUsage embedded />
-        </TabsContent>
-      </Tabs>
+      <div ref={plansRef} className="scroll-mt-16">
+        <PricingPlans embedded />
+      </div>
     </div>
   );
 }
 
-function CurrentPlan({ onSeePlans, onSeeUsage }: { onSeePlans: () => void; onSeeUsage: () => void }) {
+function CurrentPlan({ onSeePlans }: { onSeePlans: () => void }) {
+  const [, setLocation] = useLocation();
   const { data: subscription, isLoading: subLoading } =
     trpc.subscriptions.getCurrent.useQuery();
   const { data: usage, isLoading: usageLoading } =
@@ -116,10 +85,11 @@ function CurrentPlan({ onSeePlans, onSeeUsage }: { onSeePlans: () => void; onSee
   const isFreePlan = !subscription || !subscription.subscription;
   const plan = subscription?.plan;
   const sub = subscription?.subscription;
-  
+
   // Verificar se é uma assinatura de teste manual (não tem Stripe real)
-  const isManualTestSubscription = sub?.stripeCustomerId?.startsWith('cus_test_') || 
-                                    sub?.stripeSubscriptionId?.startsWith('manual_test_');
+  const isManualTestSubscription =
+    sub?.stripeCustomerId?.startsWith("cus_test_") ||
+    sub?.stripeSubscriptionId?.startsWith("manual_test_");
 
   return (
     <div className="space-y-6">
@@ -130,7 +100,8 @@ function CurrentPlan({ onSeePlans, onSeeUsage }: { onSeePlans: () => void; onSee
             🧪 Modo de Teste
           </p>
           <p className="text-sm text-amber-600/80 dark:text-amber-400/80">
-            Esta assinatura foi criada manualmente para testes. Os pagamentos automáticos do Stripe serão configurados em breve.
+            Esta assinatura foi criada manualmente para testes. Os pagamentos
+            automáticos do Stripe serão configurados em breve.
           </p>
         </div>
       )}
@@ -195,14 +166,13 @@ function CurrentPlan({ onSeePlans, onSeeUsage }: { onSeePlans: () => void; onSee
 
           <div className="flex gap-3">
             {isFreePlan ? (
-              <Button onClick={onSeePlans}>
-                Fazer Upgrade
-              </Button>
+              <Button onClick={onSeePlans}>Fazer Upgrade</Button>
             ) : isManualTestSubscription ? (
               <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
                 <p className="text-sm text-blue-600 dark:text-blue-400">
-                  ℹ️ Esta é uma assinatura de teste criada manualmente.
-                  Para gerenciar assinaturas reais do Stripe, faça um pagamento através da página de preços.
+                  ℹ️ Esta é uma assinatura de teste criada manualmente. Para
+                  gerenciar assinaturas reais do Stripe, faça um pagamento
+                  através da página de preços.
                 </p>
               </div>
             ) : (
@@ -239,63 +209,37 @@ function CurrentPlan({ onSeePlans, onSeeUsage }: { onSeePlans: () => void; onSee
               </p>
             </div>
           )}
-        </CardContent>
-      </Card>
 
-      {/* Usage Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
-            Uso do Plano
-          </CardTitle>
-          <CardDescription>
-            Acompanhe seu consumo no período atual
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Tokens usage */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Tokens utilizados</span>
-              <span className="text-sm text-muted-foreground">
+          <div className="w-full space-y-3 border-t pt-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-3">
+                <span className="font-medium">Tokens utilizados</span>
+                <Button variant="outline" size="sm" onClick={() => setLocation("/tokens")}>
+                  <BarChart3 className="mr-1 h-4 w-4" />
+                  Ver detalhes de uso
+                </Button>
+              </div>
+              <span className="tabular-nums">
                 {usage?.tokens.limit ? (
-                  `${usage.tokens.used.toLocaleString()} / ${usage.tokens.limit.toLocaleString()}`
+                  <>
+                    <span className="text-lg font-semibold">{usage.tokens.used.toLocaleString("pt-BR")}</span>
+                    <span className="text-muted-foreground"> / {usage.tokens.limit.toLocaleString("pt-BR")}</span>
+                    <span className="ml-2 text-sm text-muted-foreground">
+                      ({Math.round(usage.tokens.percentage || 0)}%)
+                    </span>
+                  </>
                 ) : (
                   <span className="text-primary font-semibold">Ilimitado</span>
                 )}
               </span>
             </div>
-            {usage?.tokens.limit && (
+            {usage?.tokens.limit ? (
               <Progress
-                value={usage?.tokens.percentage || 0}
-                className={`h-2 ${(usage?.tokens.percentage || 0) > 90 ? "bg-red-500" : ""}`}
+                value={Math.min(usage.tokens.percentage || 0, 100)}
+                className={`h-3 w-full ${(usage.tokens.percentage || 0) > 90 ? "bg-red-500" : ""}`}
               />
-            )}
-            {usage && usage.tokens.percentage > 80 && (
-              <p className="text-sm text-muted-foreground">
-                {usage.tokens.percentage > 90
-                  ? "⚠️ Você está próximo do limite! Considere fazer upgrade."
-                  : "Você está usando mais de 80% do seu limite."}
-              </p>
-            )}
+            ) : null}
           </div>
-
-          {isFreePlan && (
-            <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 mt-4">
-              <p className="text-sm font-medium mb-2">💎 Quer mais recursos?</p>
-              <p className="text-sm text-muted-foreground mb-3">
-                Faça upgrade para ter features ilimitadas e muito mais tokens!
-              </p>
-              <Button size="sm" onClick={onSeePlans}>
-                Ver Planos
-              </Button>
-            </div>
-          )}
-
-          <Button variant="link" className="h-auto p-0" onClick={onSeeUsage}>
-            Ver o consumo detalhado de tokens
-          </Button>
         </CardContent>
       </Card>
     </div>

@@ -26,14 +26,10 @@ import {
   LogOut,
   PanelLeft,
   Sparkles,
-  History,
   Settings,
-  FileText,
   Brain,
   GitBranch,
-  Cloud,
   CreditCard,
-  Database,
   MessageSquare,
   Building2,
   Sun,
@@ -46,17 +42,22 @@ import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
 import { Button } from "./ui/button";
 
 // systemAdminOnly: só admins do sistema (users.role = admin), não admins de empresa
-const menuItems = [
+// also: outras rotas em que o item fica ativo (subabas e detalhes)
+type MenuItem = {
+  icon: typeof MessageSquare;
+  label: string;
+  path: string;
+  systemAdminOnly?: boolean;
+  also?: string[];
+};
+
+const menuItems: MenuItem[] = [
   { icon: MessageSquare, label: "Knowledge Chat", path: "/knowledge/chat" },
-  { icon: Sparkles, label: "Gerar Feature", path: "/generate" },
-  { icon: History, label: "Histórico", path: "/history" },
-  { icon: Database, label: "Base de Conhecimento", path: "/knowledge" },
-  { icon: FileText, label: "Execuções", path: "/executions", systemAdminOnly: true },
+  { icon: Sparkles, label: "Features", path: "/generate", also: ["/history", "/features/"] },
   { icon: CreditCard, label: "Planos e Assinatura", path: "/account/subscription" },
-  { icon: Building2, label: "Empresa & Times", path: "/company/settings" },
-  { icon: Brain, label: "Config. LLM", path: "/config/llm", systemAdminOnly: true },
+  { icon: Building2, label: "Empresas", path: "/company/settings", also: ["/company/", "/knowledge"] },
+  { icon: Brain, label: "Config", path: "/config/llm", systemAdminOnly: true, also: ["/executions"] },
   // { icon: GitBranch, label: "Config. Jira", path: "/config/jira" }, // Oculto temporariamente
-  { icon: Cloud, label: "Config. Azure DevOps", path: "/config/azure-devops" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
@@ -123,7 +124,10 @@ function DashboardLayoutContent({
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
-  const activeMenuItem = menuItems.find(item => item.path === location);
+  const isItemActive = (item: MenuItem) =>
+    location === item.path ||
+    Boolean(item.also?.some(p => (p.endsWith("/") ? location.startsWith(p) : location === p)));
+  const activeMenuItem = menuItems.find(isItemActive);
   const isMobile = useIsMobile();
 
   usePageSeo({
@@ -235,7 +239,7 @@ function DashboardLayoutContent({
         </div>
       </header>
 
-      <div className="flex pt-12">
+      <div className="flex min-w-0 flex-1 pt-12">
         {/* Left navigation sidebar - Azure DevOps style */}
         <div className="relative" ref={sidebarRef}>
           <Sidebar
@@ -258,7 +262,7 @@ function DashboardLayoutContent({
                 {menuItems
                   .filter(item => !item.systemAdminOnly || user?.role === "admin")
                   .map(item => {
-                    const isActive = location === item.path;
+                    const isActive = isItemActive(item);
                     return (
                       <SidebarMenuItem key={item.path} className="relative">
                         {/* Azure DevOps blue left accent bar */}

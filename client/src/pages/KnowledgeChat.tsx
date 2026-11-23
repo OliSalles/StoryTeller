@@ -97,7 +97,8 @@ function ConversationHistory({
         </Button>
       </div>
       <p className="px-3 pb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Histórico</p>
-      <ScrollArea className="flex-1 min-h-0">
+      {/* O viewport do Radix usa display:table, que impede o truncate e empurra os botões para fora */}
+      <ScrollArea className="flex-1 min-h-0 [&_[data-slot=scroll-area-viewport]>div]:!block">
         <ul className="space-y-0.5 p-2">
           {loading && <li className="px-2 py-1 text-sm text-muted-foreground">Carregando...</li>}
           {!loading && sessions.length === 0 && (
@@ -334,7 +335,7 @@ export function KnowledgeChat() {
 
       <div className="flex min-h-0 flex-1 gap-3">
         {/* Esquerda: histórico de conversas */}
-        <aside className="hidden w-64 shrink-0 flex-col rounded-lg border bg-card md:flex">{history}</aside>
+        <aside className="hidden w-80 shrink-0 flex-col rounded-lg border bg-card md:flex">{history}</aside>
 
         {/* Conversa */}
         <section className="flex min-w-0 flex-1 flex-col rounded-lg border bg-card">
@@ -520,7 +521,7 @@ export function KnowledgeChat() {
 
       {/* Histórico no celular */}
       <Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
-        <SheetContent side="left" className="flex w-72 flex-col gap-0 p-0">
+        <SheetContent side="left" className="flex w-80 flex-col gap-0 p-0">
           <SheetHeader className="border-b p-4">
             <SheetTitle>Conversas</SheetTitle>
             <SheetDescription>Abra uma conversa anterior ou comece outra.</SheetDescription>

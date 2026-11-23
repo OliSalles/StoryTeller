@@ -193,15 +193,13 @@ export function PricingPlans({ embedded = false }: { embedded?: boolean }) {
             return getOrder(a.name) - getOrder(b.name);
           })
           .map(plan => {
+            // Gratuito não tem assinatura: é o atual de quem não tem plano pago
+            const isMyPlan = plan.name === currentPlanName;
             const isCurrentPlan =
-              currentSubscription?.subscription?.planId === plan.id &&
-              currentBillingCycle === billingCycle;
+              isMyPlan && (plan.name === "free" || currentBillingCycle === billingCycle);
             const isSamePlanDifferentCycle =
-              currentSubscription?.subscription?.planId === plan.id &&
-              currentBillingCycle !== billingCycle &&
-              plan.name !== "free";
+              isMyPlan && plan.name !== "free" && currentBillingCycle !== billingCycle;
             const isNextPlan = plan.name === nextPlanName;
-            const isPro = plan.name === "pro";
             const price =
               billingCycle === "monthly" ? plan.priceMonthly : plan.priceYearly;
             const displayPrice = price ? (price / 100).toFixed(0) : "0";
@@ -225,66 +223,33 @@ export function PricingPlans({ embedded = false }: { embedded?: boolean }) {
             return (
               <Card
                 key={plan.id}
-                className={`relative flex flex-col ${
-                  isCurrentPlan
-                    ? "border-green-500 shadow-lg ring-2 ring-green-500/20"
-                    : isSamePlanDifferentCycle
-                      ? "border-blue-500 shadow-lg ring-2 ring-blue-500/20"
-                      : isNextPlan
-                        ? "border-primary shadow-lg scale-105 ring-2 ring-primary/20"
-                        : isPro && !isCurrentPlan && !isNextPlan
-                          ? "border-primary shadow-lg scale-105"
-                          : ""
+                className={`relative flex flex-col transition-transform ${
+                  isNextPlan
+                    ? "z-10 border-2 border-primary shadow-2xl ring-4 ring-primary/15 md:scale-105"
+                    : isMyPlan
+                      ? "border-2 border-foreground/40"
+                      : ""
                 }`}
               >
-                {/* Badge para Plano Atual */}
-                {isCurrentPlan && (
+                {/* Plano recomendado: maior destaque */}
+                {isNextPlan && (
                   <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                    <div className="bg-green-500 text-white px-4 py-1 rounded-full text-sm font-medium flex items-center gap-1">
+                    <div className="bg-gradient-to-r from-primary to-purple-600 text-white px-4 py-1 rounded-full text-sm font-medium flex items-center gap-1 shadow-lg whitespace-nowrap">
+                      <Sparkles className="h-3 w-3" />
+                      Recomendado
+                    </div>
+                  </div>
+                )}
+
+                {/* Plano atual: só o contorno e uma etiqueta discreta */}
+                {isMyPlan && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <div className="bg-background border border-foreground/40 text-foreground px-3 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 whitespace-nowrap">
                       <Check className="h-3 w-3" />
-                      Seu Plano Atual
+                      Seu plano atual
                     </div>
                   </div>
                 )}
-
-                {/* Badge para Mesmo Plano com Ciclo Diferente */}
-                {isSamePlanDifferentCycle && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                    <div className="bg-blue-500 text-white px-4 py-1 rounded-full text-sm font-medium flex items-center gap-1">
-                      {billingCycle === "yearly" ? (
-                        <DollarSign className="h-3 w-3" />
-                      ) : (
-                        <TrendingUp className="h-3 w-3" />
-                      )}
-                      {billingCycle === "yearly"
-                        ? "Economize"
-                        : "Mais Flexibilidade"}
-                    </div>
-                  </div>
-                )}
-
-                {/* Badge para Próximo Plano (Upgrade Recomendado) */}
-                {!isCurrentPlan && !isSamePlanDifferentCycle && isNextPlan && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                    <div className="bg-gradient-to-r from-primary to-purple-600 text-white px-4 py-1 rounded-full text-sm font-medium flex items-center gap-1 shadow-lg">
-                      <TrendingUp className="h-3 w-3" />
-                      Faça Upgrade
-                    </div>
-                  </div>
-                )}
-
-                {/* Badge Mais Popular (apenas se não for plano atual, próximo ou ciclo diferente) */}
-                {isPro &&
-                  !isCurrentPlan &&
-                  !isNextPlan &&
-                  !isSamePlanDifferentCycle && (
-                    <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                      <div className="bg-primary text-primary-foreground px-4 py-1 rounded-full text-sm font-medium flex items-center gap-1">
-                        <Sparkles className="h-3 w-3" />
-                        Mais Popular
-                      </div>
-                    </div>
-                  )}
 
                 <CardHeader className="text-center">
                   <CardTitle className="text-2xl">{plan.displayName}</CardTitle>
@@ -384,14 +349,8 @@ export function PricingPlans({ embedded = false }: { embedded?: boolean }) {
                     onClick={() => handleSelectPlan(plan.id, plan.name)}
                     disabled={isCurrentPlan || createCheckout.isPending}
                     className="w-full"
-                    variant={
-                      isNextPlan || isPro || isSamePlanDifferentCycle
-                        ? "default"
-                        : "outline"
-                    }
-                    size={
-                      isNextPlan || isSamePlanDifferentCycle ? "lg" : "default"
-                    }
+                    variant={isNextPlan ? "default" : "outline"}
+                    size={isNextPlan ? "lg" : "default"}
                   >
                     {createCheckout.isPending ? (
                       <>

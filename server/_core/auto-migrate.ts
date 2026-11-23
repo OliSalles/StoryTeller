@@ -319,22 +319,39 @@ const AZURE_COMPANY_STATEMENTS = [
   )`,
 ];
 
-async function runAzureCompanyMigration(): Promise<void> {
+const COMPANY_INVITES_STATEMENTS = [
+  `CREATE TABLE IF NOT EXISTS company_invites (
+    id serial PRIMARY KEY,
+    company_id integer NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    email varchar(320) NOT NULL,
+    role company_role NOT NULL DEFAULT 'member',
+    token varchar(64) NOT NULL UNIQUE,
+    invited_by integer REFERENCES users(id) ON DELETE SET NULL,
+    created_at timestamp DEFAULT now() NOT NULL,
+    last_sent_at timestamp DEFAULT now() NOT NULL,
+    accepted_at timestamp
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_company_invites_email ON company_invites(email)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS company_invites_pending_uq ON company_invites(company_id, email) WHERE accepted_at IS NULL`,
+];
+
+/** Executa statements idempotentes um a um; falhas viram aviso sem derrubar o servidor */
+async function runStatements(label: string, statements: string[]): Promise<void> {
   const db = await getDb();
   if (!db) return;
-  for (let i = 0; i < AZURE_COMPANY_STATEMENTS.length; i++) {
-    const statement = AZURE_COMPANY_STATEMENTS[i];
+  for (let i = 0; i < statements.length; i++) {
+    const statement = statements[i];
     try {
       await db.execute(sql.raw(statement));
     } catch (error: any) {
       const pgError = error.cause || error;
       const missingLegacy = pgError.code === '42P01' && statement.includes('azure_devops_configs');
       if (!missingLegacy) {
-        console.warn(`[Auto-Migrate] ⚠️  Azure DevOps statement ${i + 1} failed: ${pgError.message}`);
+        console.warn(`[Auto-Migrate] ⚠️  ${label} statement ${i + 1} failed: ${pgError.message}`);
       }
     }
   }
-  console.log('[Auto-Migrate] ✅ Azure DevOps vinculado às empresas');
+  console.log(`[Auto-Migrate] ✅ ${label}`);
 }
 
 /**
@@ -365,7 +382,8 @@ export async function runAutoMigrations(): Promise<void> {
       return;
     }
 
-    await runAzureCompanyMigration();
+    await runStatements('Azure DevOps vinculado às empresas', AZURE_COMPANY_STATEMENTS);
+    await runStatements('Convites de empresa', COMPANY_INVITES_STATEMENTS);
 
     console.log('[Auto-Migrate] ✅ All migrations completed successfully');
   } catch (error: any) {

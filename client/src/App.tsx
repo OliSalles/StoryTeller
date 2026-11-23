@@ -1,7 +1,9 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import DashboardLayout from "@/components/DashboardLayout";
+import { FeaturesTabs, LLMTabs } from "@/components/RouteTabs";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { trpc } from "@/lib/trpc";
 import NotFound from "@/pages/NotFound";
 import { Redirect, Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -14,12 +16,12 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 
 import JiraConfig from "./pages/JiraConfig";
-import AzureDevOpsConfigNew from "./pages/AzureDevOpsConfigNew";
 import LLMConfig from "./pages/LLMConfig";
 import GenerateFeature from "./pages/GenerateFeature";
 import FeatureDetail from "./pages/FeatureDetail";
 import History from "./pages/History";
 import Executions from "./pages/Executions";
+import TokenUsage from "./pages/TokenUsage";
 import Pricing from "./pages/Pricing";
 import AccountSubscription from "./pages/AccountSubscription";
 import SubscriptionSuccess from "./pages/SubscriptionSuccess";
@@ -36,6 +38,13 @@ function SystemAdminOnly({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+/** Leva ao detalhe da empresa em uso (onde ficam as configurações da empresa) */
+function ActiveCompanyRedirect() {
+  const { data: company, isLoading } = trpc.companies.current.useQuery();
+  if (isLoading) return null;
+  return <Redirect to={company ? `/company/${company.id}` : "/company/settings"} replace />;
+}
+
 function Router() {
   return (
     <Switch>
@@ -47,13 +56,17 @@ function Router() {
 
       <Route path={"/generate"}>
         <DashboardLayout>
-          <GenerateFeature />
+          <FeaturesTabs>
+            <GenerateFeature />
+          </FeaturesTabs>
         </DashboardLayout>
       </Route>
 
       <Route path={"/history"}>
         <DashboardLayout>
-          <History />
+          <FeaturesTabs>
+            <History />
+          </FeaturesTabs>
         </DashboardLayout>
       </Route>
 
@@ -66,7 +79,9 @@ function Router() {
       <Route path={"/config/llm"}>
         <DashboardLayout>
           <SystemAdminOnly>
-            <LLMConfig />
+            <LLMTabs>
+              <LLMConfig />
+            </LLMTabs>
           </SystemAdminOnly>
         </DashboardLayout>
       </Route>
@@ -79,20 +94,24 @@ function Router() {
 
       <Route path={"/config/azure-devops"}>
         <DashboardLayout>
-          <AzureDevOpsConfigNew />
+          <ActiveCompanyRedirect />
         </DashboardLayout>
       </Route>
 
       <Route path={"/executions"}>
         <DashboardLayout>
           <SystemAdminOnly>
-            <Executions />
+            <LLMTabs>
+              <Executions />
+            </LLMTabs>
           </SystemAdminOnly>
         </DashboardLayout>
       </Route>
 
       <Route path={"/tokens"}>
-        <Redirect to="/account/subscription?tab=uso" replace />
+        <DashboardLayout>
+          <TokenUsage />
+        </DashboardLayout>
       </Route>
 
       <Route path={"/pricing"}>
@@ -146,10 +165,7 @@ function Router() {
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider
-        defaultTheme="light"
-        switchable
-      >
+      <ThemeProvider defaultTheme="light" switchable>
         <TooltipProvider>
           <Toaster />
           <PublicThemeToggle />

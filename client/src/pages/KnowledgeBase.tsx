@@ -8,7 +8,7 @@ import { Badge } from "../components/ui/badge";
 import { Progress } from "../components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { toast } from "sonner";
-import { FileText, Upload, Database, RefreshCw, Trash2, Eye, Search, Wrench, Plug, Lock } from "lucide-react";
+import { ArrowLeft, FileText, Upload, Database, RefreshCw, Trash2, Eye, Search, Wrench, Plug, Lock } from "lucide-react";
 import { Link } from "wouter";
 import { KnowledgeConnections } from "../components/KnowledgeConnections";
 import { Switch } from "../components/ui/switch";
@@ -174,6 +174,12 @@ export function KnowledgeBase() {
     <div className="space-y-4">
         {/* Azure DevOps style header */}
         <div>
+          <Link
+            href={currentCompany ? `/company/${currentCompany.id}` : "/company/settings"}
+            className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="mr-1 h-3.5 w-3.5" /> {currentCompany?.name ?? "Empresas"}
+          </Link>
           <h1 className="text-2xl font-semibold tracking-tight">Base de Conhecimento</h1>
           <p className="text-sm text-muted-foreground mt-1">
             {currentCompany ? (

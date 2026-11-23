@@ -1,11 +1,58 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { protectedProcedure, tenantProcedure, router } from "./_core/trpc";
+import { protectedProcedure, publicProcedure, tenantProcedure, router } from "./_core/trpc";
 import * as knowledgeDb from "./knowledge-db";
 import { getUserByEmail } from "./db";
 import { guardCompanyAccess, guardCompanyAdmin, guardCompanyOwner } from "./_core/tenant-guard";
+import { ENV } from "./_core/env";
+import { escapeHtml, sendMail } from "./_core/mailer";
 
 const LAST_ADMIN_MESSAGE = "A empresa precisa ter pelo menos 1 administrador. Promova outro membro antes.";
+
+const ROLE_NAMES = { owner: "proprietário", admin: "administrador", member: "membro" } as const;
+
+function emailLayout(paragraphs: string[], cta: { label: string; url: string }) {
+  return `<div style="font-family:Arial,sans-serif;font-size:15px;color:#1f2937;max-width:520px">
+${paragraphs.map((p) => `<p>${p}</p>`).join("\n")}
+<p><a href="${cta.url}" style="display:inline-block;background:#0078d4;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none">${cta.label}</a></p>
+<p style="font-size:13px;color:#6b7280">Se o botão não funcionar, copie este link: ${cta.url}</p>
+</div>`;
+}
+
+async function sendInviteEmail(
+  invite: { email: string; token: string; role: keyof typeof ROLE_NAMES },
+  companyName: string,
+  inviterName: string
+) {
+  const url = `${ENV.appUrl}/register?invite=${invite.token}`;
+  const role = ROLE_NAMES[invite.role];
+  return sendMail({
+    to: invite.email,
+    subject: `${inviterName} convidou você para ${companyName} no Story Teller`,
+    text: `${inviterName} convidou você para entrar na empresa ${companyName} no Story Teller como ${role}.\n\nCrie sua conta com este email para entrar automaticamente: ${url}\n\nSua conta terá a sua própria assinatura (começa no plano gratuito).`,
+    html: emailLayout(
+      [
+        `<strong>${escapeHtml(inviterName)}</strong> convidou você para entrar na empresa <strong>${escapeHtml(companyName)}</strong> no Story Teller como ${role}.`,
+        `Crie sua conta com este email (${escapeHtml(invite.email)}) e você entra na empresa automaticamente.`,
+        `Sua conta terá a sua própria assinatura e começa no plano gratuito.`,
+      ],
+      { label: "Criar minha conta", url }
+    ),
+  });
+}
+
+async function sendAddedEmail(email: string, companyName: string, inviterName: string) {
+  const url = `${ENV.appUrl}/login`;
+  return sendMail({
+    to: email,
+    subject: `Você agora faz parte de ${companyName} no Story Teller`,
+    text: `${inviterName} adicionou você à empresa ${companyName} no Story Teller. Entre para acessar: ${url}`,
+    html: emailLayout(
+      [`<strong>${escapeHtml(inviterName)}</strong> adicionou você à empresa <strong>${escapeHtml(companyName)}</strong> no Story Teller.`],
+      { label: "Entrar no Story Teller", url }
+    ),
+  });
+}
 
 /** Garante que a mudança não deixa a empresa sem administrador */
 async function guardKeepsAnAdmin(companyId: number, userId: number) {
@@ -165,25 +212,33 @@ export const companiesRouter = router({
     }),
 
   /**
-   * Adiciona um funcionário pelo email (admin only). A pessoa precisa já ter conta.
+   * Adiciona um funcionário pelo email (admin only).
+   * Com conta: entra na hora e recebe um aviso. Sem conta: recebe convite para se cadastrar
+   * e entra na empresa automaticamente ao criar a conta.
    */
   inviteMember: tenantProcedure
     .input(
       z.object({
         companyId: z.number(),
-        email: z.string().trim().email("Email inválido"),
+        email: z.string().trim().toLowerCase().email("Email inválido"),
         role: z.enum(['member', 'admin']).default('member'),
       })
     )
     .mutation(async ({ ctx, input }) => {
       await guardCompanyAdmin(ctx.user.id, input.companyId);
+      const company = await knowledgeDb.getCompanyById(input.companyId);
+      if (!company) throw new TRPCError({ code: "NOT_FOUND", message: "Empresa não encontrada" });
 
       const user = await getUserByEmail(input.email);
       if (!user) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Não existe conta com esse email. Peça para a pessoa se cadastrar no Story Teller e tente de novo.",
+        const invite = await knowledgeDb.upsertCompanyInvite({
+          companyId: input.companyId,
+          email: input.email,
+          role: input.role,
+          invitedBy: ctx.user.id,
         });
+        const emailSent = await sendInviteEmail(invite, company.name, ctx.user.name);
+        return { status: "invited" as const, email: input.email, name: null, emailSent };
       }
       
       const existing = await knowledgeDb.getCompanyMember(input.companyId, user.id);
@@ -194,13 +249,48 @@ export const companiesRouter = router({
         });
       }
       
-      const memberId = await knowledgeDb.addCompanyMember({
+      await knowledgeDb.addCompanyMember({
         companyId: input.companyId,
         userId: user.id,
         role: input.role,
       });
+      const emailSent = await sendAddedEmail(user.email, company.name, ctx.user.name);
       
-      return { memberId, name: user.name, email: user.email };
+      return { status: "added" as const, email: user.email, name: user.name, emailSent };
+    }),
+
+  /** Convites ainda não aceitos (admin only) */
+  listInvites: tenantProcedure
+    .input(z.object({ companyId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      await guardCompanyAdmin(ctx.user.id, input.companyId);
+      return knowledgeDb.listPendingCompanyInvites(input.companyId);
+    }),
+
+  resendInvite: tenantProcedure
+    .input(z.object({ companyId: z.number(), inviteId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      await guardCompanyAdmin(ctx.user.id, input.companyId);
+      const invite = await knowledgeDb.getPendingCompanyInvite(input.companyId, input.inviteId);
+      const company = await knowledgeDb.getCompanyById(input.companyId);
+      if (!invite || !company) throw new TRPCError({ code: "NOT_FOUND", message: "Convite não encontrado" });
+      await knowledgeDb.touchCompanyInvite(invite.id);
+      return { emailSent: await sendInviteEmail(invite, company.name, ctx.user.name) };
+    }),
+
+  cancelInvite: tenantProcedure
+    .input(z.object({ companyId: z.number(), inviteId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      await guardCompanyAdmin(ctx.user.id, input.companyId);
+      await knowledgeDb.deleteCompanyInvite(input.companyId, input.inviteId);
+      return { success: true };
+    }),
+
+  /** Dados do convite para a tela de cadastro (público: quem recebe ainda não tem conta) */
+  inviteInfo: publicProcedure
+    .input(z.object({ token: z.string().min(10).max(64) }))
+    .query(async ({ input }) => {
+      return knowledgeDb.getPendingInviteByToken(input.token);
     }),
 
   /**
