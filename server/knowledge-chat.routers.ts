@@ -12,7 +12,10 @@ import {
   extractImageUrls,
   selectCodeChunks,
   mergeWithCode,
+  selectTechDebtChunks,
+  type RankedChunk,
 } from "./knowledge-retrieval";
+import { isTechDebtSectionEnabled } from "./_core/company-settings";
 import { githubBlobUrl } from "./_core/code-chunker";
 import { sanitizeMarkdownMermaid } from "@shared/mermaid-sanitize";
 
@@ -115,7 +118,20 @@ async function planRetrieval(
   }
 }
 
-function buildAnswerPrompt(context: string, imageUrls: string[], hasCode = false): string {
+export const TECH_DEBT_SECTION_TITLE = "## Débitos técnicos e propostas de melhoria";
+
+/** Instrução extra do prompt, só quando existem trechos de débitos técnicos para o assunto */
+export function techDebtInstruction(techDebtRefs: number[]): string {
+  if (techDebtRefs.length === 0) return "";
+  const refs = techDebtRefs.map((n) => `[${n}]`).join(", ");
+  return `\n\nDÉBITOS TÉCNICOS E PROPOSTAS DE MELHORIA (trechos ${refs}):
+- Esses trechos vêm de material de débitos técnicos e propostas de melhoria. Não use esses trechos no corpo da resposta.
+- Logo antes da seção "### Fontes", inclua a seção "${TECH_DEBT_SECTION_TITLE}" com duas partes: "### Débitos técnicos" (o que hoje tem problema, limitação ou risco) e "### Propostas de melhoria" (o que se propõe mudar e o ganho esperado), em listas, citando os números das fontes.
+- Use somente o que está nesses trechos e que tenha relação com o assunto perguntado. Não invente débitos nem propostas. Se uma das partes não tiver informação, escreva "Não documentado na base." nessa parte.
+- Se nenhum desses trechos tiver relação com o assunto perguntado, não inclua essa seção.`;
+}
+
+export function buildAnswerPrompt(context: string, imageUrls: string[], hasCode = false, techDebtRefs: number[] = []): string {
   const code = hasCode
     ? `\n\nSOBRE TRECHOS DE CÓDIGO (fontes do tipo código):
 - Primeiro explique em linguagem de negócio. Depois inclua uma seção "### Como funciona no código" explicando o que o código faz, as regras e validações que ele aplica e a ordem das chamadas.
@@ -141,7 +157,7 @@ FORMATO (markdown):
 2. Depois organize em seções com títulos (## ou ###), por exemplo: o que é, para que serve, regras principais, como funciona passo a passo, quem participa, exceções e pontos de atenção. Use só as seções que fizerem sentido.
 3. Use listas e passos numerados para deixar a leitura fácil. Use tabelas quando comparar itens.
 4. Quando o assunto for um processo, fluxo, jornada, integração ou sequência de etapas, inclua um diagrama Mermaid em um bloco \`\`\`mermaid usando "flowchart TD". Regras do diagrama: ids simples sem espaço (A, B, C1), textos dos nós entre aspas duplas, por exemplo A["Pedido criado"] --> B{"Aprovado?"}, sem parênteses, dois pontos ou ponto e vírgula fora das aspas, no máximo 15 nós.
-5. Termine com uma seção "### Fontes" listando, sem repetir, os nomes das fontes usadas com seus números (para código, liste também os arquivos).${images}${code}
+5. Termine com uma seção "### Fontes" listando, sem repetir, os nomes das fontes usadas com seus números (para código, liste também os arquivos).${images}${code}${techDebtInstruction(techDebtRefs)}
 
 CONTEXTO DA BASE DE CONHECIMENTO:
 
@@ -265,18 +281,30 @@ export const knowledgeChatRouter = router({
           ])
         : Promise.resolve([[], []] as knowledgeDb.HybridChunkRow[][]);
 
+      // Débitos técnicos e propostas de melhoria: só com a flag da empresa ligada.
+      // Com a flag desligada a busca é exatamente a de antes (sem filtro de categoria).
+      const techDebtOn = await isTechDebtSectionEnabled(ctx.tenant.companyId).catch(() => false);
+      const mainCategory = techDebtOn ? ("exclude_tech_debt" as const) : undefined;
+      const techDebtSearch = techDebtOn
+        ? Promise.all([
+            knowledgeDb.searchVectorChunks(queryEmbedding, ctx.tenant.companyId, 10, undefined, "only_tech_debt").catch(() => [] as knowledgeDb.HybridChunkRow[]),
+            knowledgeDb.searchKeywordChunks(keyTerms, ctx.tenant.companyId, 12, undefined, "only_tech_debt").catch(() => [] as knowledgeDb.HybridChunkRow[]),
+          ])
+        : Promise.resolve([[], []] as knowledgeDb.HybridChunkRow[][]);
+
       const [vectorChunks, keywordChunks] = await Promise.all([
-        knowledgeDb.searchVectorChunks(queryEmbedding, ctx.tenant.companyId, 24).catch((err) => {
+        knowledgeDb.searchVectorChunks(queryEmbedding, ctx.tenant.companyId, 24, undefined, mainCategory).catch((err) => {
           console.error("[KnowledgeChat] vector search failed:", err);
           return [] as knowledgeDb.HybridChunkRow[];
         }),
-        knowledgeDb.searchKeywordChunks(keyTerms, ctx.tenant.companyId, 30).catch((err) => {
+        knowledgeDb.searchKeywordChunks(keyTerms, ctx.tenant.companyId, 30, undefined, mainCategory).catch((err) => {
           console.error("[KnowledgeChat] keyword search failed:", err);
           return [] as knowledgeDb.HybridChunkRow[];
         }),
       ]);
 
       const [codeVector, codeKeyword] = await codeSearch;
+      const [debtVector, debtKeyword] = await techDebtSearch;
 
       const ranked = reciprocalRankFusion([
         { kind: "vector", items: vectorChunks, weight: 1 },
@@ -296,8 +324,17 @@ export const knowledgeChatRouter = router({
           )
         : selectDiverse(ranked, { maxChunks: 14, maxPerSource: 4, tokenBudget: 9000 });
 
+      const techDebtChunks: RankedChunk[] = techDebtOn
+        ? selectTechDebtChunks(
+            reciprocalRankFusion([
+              { kind: "vector", items: debtVector, weight: 1 },
+              { kind: "keyword", items: debtKeyword, weight: 1.2 },
+            ])
+          )
+        : [];
+
       console.log(
-        `[KnowledgeChat] needsCode=${plan.needsCode} code=${codeVector.length}/${codeKeyword.length} terms=${JSON.stringify(keyTerms)} vector=${vectorChunks.length} keyword=${keywordChunks.length} final=${finalChunks.length} sources=${new Set(finalChunks.map((c) => c.source_id)).size}`
+        `[KnowledgeChat] techDebt=${techDebtOn ? techDebtChunks.length : "off"} needsCode=${plan.needsCode} code=${codeVector.length}/${codeKeyword.length} terms=${JSON.stringify(keyTerms)} vector=${vectorChunks.length} keyword=${keywordChunks.length} final=${finalChunks.length} sources=${new Set(finalChunks.map((c) => c.source_id)).size}`
       );
 
       if (finalChunks.length === 0) {
@@ -314,20 +351,25 @@ export const knowledgeChatRouter = router({
         return { response: responseContent, citations: [] };
       }
 
+      // Os trechos de débitos técnicos entram depois dos demais, só se houver resposta principal
+      const techDebtRefs = techDebtChunks.map((_, i) => finalChunks.length + i + 1);
+      const answerChunks = [...finalChunks, ...techDebtChunks];
+
       // 3) Contexto organizado por trecho, com nome e tipo da fonte
-      const context = finalChunks
+      const context = answerChunks
         .map((chunk, i) => {
           const type = chunk.source_type ? ` (${SOURCE_TYPE_NAMES[chunk.source_type] ?? chunk.source_type})` : "";
           const path = chunk.metadata?.filePath || chunk.metadata?.path || chunk.metadata?.fileName;
           const lines = chunk.metadata?.startLine ? ` (linhas ${chunk.metadata.startLine}-${chunk.metadata.endLine})` : "";
-          return `[${i + 1}] Fonte: ${chunk.source_name}${type}${path ? ` | ${path}${lines}` : ""}\n${chunk.content}`;
+          const debt = i >= finalChunks.length ? " [débitos técnicos e propostas de melhoria]" : "";
+          return `[${i + 1}] Fonte: ${chunk.source_name}${type}${debt}${path ? ` | ${path}${lines}` : ""}\n${chunk.content}`;
         })
         .join("\n\n---\n\n");
 
       const imageUrls = extractImageUrls(finalChunks);
 
       const hasCode = finalChunks.some((c) => c.source_type === "code_repo");
-      const systemPrompt = buildAnswerPrompt(context, imageUrls, hasCode);
+      const systemPrompt = buildAnswerPrompt(context, imageUrls, hasCode, techDebtRefs);
 
       // Build message history
       const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
@@ -352,7 +394,7 @@ export const knowledgeChatRouter = router({
       const responseContent = sanitizeMarkdownMermaid(rawContent);
       
       // Prepare citations (uma por trecho, com a forma como foi encontrado)
-      const citations = finalChunks.map((chunk, i) => ({
+      const citations = answerChunks.map((chunk, i) => ({
         index: i + 1,
         sourceId: chunk.source_id,
         sourceName: chunk.source_name,
@@ -360,6 +402,7 @@ export const knowledgeChatRouter = router({
         excerpt: chunk.content.substring(0, 200) + (chunk.content.length > 200 ? '...' : ''),
         similarity: Math.round((chunk.similarity || 0) * 100),
         matchedBy: chunk.matchedBy,
+        techDebt: i >= finalChunks.length,
         filePath: chunk.metadata?.filePath ?? null,
         startLine: chunk.metadata?.startLine ?? null,
         endLine: chunk.metadata?.endLine ?? null,

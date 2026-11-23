@@ -621,6 +621,17 @@ export async function getKnowledgeChatMessagesBySessionId(sessionId: number) {
 const ACCENTED = "áàâãäéèêëíìîïóòôõöúùûüçñ";
 const UNACCENTED = "aaaaaeeeeiiiiooooouuuucn";
 
+/** Categoria de fonte para débitos técnicos e propostas de melhoria (knowledge_sources.metadata.category) */
+export const TECH_DEBT_CATEGORY = "tech_debt";
+
+export type CategoryFilter = "only_tech_debt" | "exclude_tech_debt";
+
+function categoryFilterSql(filter?: CategoryFilter) {
+  if (filter === "only_tech_debt") return sql`AND ks.metadata->>'category' = ${TECH_DEBT_CATEGORY}`;
+  if (filter === "exclude_tech_debt") return sql`AND COALESCE(ks.metadata->>'category', '') <> ${TECH_DEBT_CATEGORY}`;
+  return sql``;
+}
+
 export type HybridChunkRow = {
   chunk_id: number;
   content: string;
@@ -638,7 +649,8 @@ export async function searchVectorChunks(
   queryEmbedding: number[],
   companyId: number,
   matchCount = 20,
-  sourceTypes?: string[]
+  sourceTypes?: string[],
+  category?: CategoryFilter
 ): Promise<HybridChunkRow[]> {
   const db = await getDb();
   if (!db) return [];
@@ -654,7 +666,7 @@ export async function searchVectorChunks(
     FROM knowledge_embeddings ke
     JOIN knowledge_chunks kc ON ke.chunk_id = kc.id
     JOIN knowledge_sources ks ON kc.source_id = ks.id
-    WHERE ke.company_id = ${companyId} ${typeFilter}
+    WHERE ke.company_id = ${companyId} ${typeFilter} ${categoryFilterSql(category)}
     ORDER BY ke.embedding <=> ${embeddingStr}::vector
     LIMIT ${matchCount}
   `);
@@ -669,7 +681,8 @@ export async function searchKeywordChunks(
   terms: string[],
   companyId: number,
   matchCount = 30,
-  sourceTypes?: string[]
+  sourceTypes?: string[],
+  category?: CategoryFilter
 ): Promise<HybridChunkRow[]> {
   const db = await getDb();
   if (!db || terms.length === 0) return [];
@@ -694,7 +707,7 @@ export async function searchKeywordChunks(
              translate(lower(kc.content || ' ' || ks.name), ${ACCENTED}, ${UNACCENTED}) AS norm
       FROM knowledge_chunks kc
       JOIN knowledge_sources ks ON kc.source_id = ks.id
-      WHERE kc.company_id = ${companyId} ${typeFilter}
+      WHERE kc.company_id = ${companyId} ${typeFilter} ${categoryFilterSql(category)}
     ) t
     WHERE ${sql.join(anyMatch, sql` OR `)}
     ORDER BY kw_score DESC, length(content) DESC

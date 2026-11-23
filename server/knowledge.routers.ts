@@ -9,6 +9,12 @@ import { nanoid } from "nanoid";
 
 import { encryptSecret } from "./_core/secret-box";
 import { parseGithubRepo } from "./_core/code-chunker";
+import {
+  CompanySettingsUnavailableError,
+  getCompanySettings,
+  techDebtGloballyDisabled,
+  updateCompanySettings,
+} from "./_core/company-settings";
 
 /** Remove segredos (token criptografado) antes de devolver a fonte ao cliente */
 export function sanitizeSourceMetadata<T extends { metadata?: unknown }>(source: T): T {
@@ -16,6 +22,10 @@ export function sanitizeSourceMetadata<T extends { metadata?: unknown }>(source:
   if (!meta || typeof meta !== "object" || !("tokenEnc" in meta)) return source;
   const { tokenEnc, ...rest } = meta;
   return { ...source, metadata: { ...rest, hasToken: Boolean(tokenEnc) } };
+}
+
+function isCompanyManager(ctx: { user: { role: string }; tenant: { isCompanyAdmin: boolean; isCompanyOwner: boolean } }) {
+  return ctx.user.role === "admin" || ctx.tenant.isCompanyAdmin || ctx.tenant.isCompanyOwner;
 }
 
 function assertCanManageCode(ctx: { user: { role: string }; tenant: { isCompanyAdmin: boolean; isCompanyOwner: boolean } }) {
@@ -39,6 +49,60 @@ const UPLOAD_DIR = process.env.UPLOAD_DIR || "/tmp/storyteller-uploads";
 
 export const knowledgeRouter = router({
   /**
+   * Configurações da base para a empresa ativa (flags de recursos)
+   */
+  getSettings: tenantProcedure.query(async ({ ctx }) => {
+    const settings = await getCompanySettings(ctx.tenant.companyId);
+    return {
+      techDebtSection: settings.techDebtSection && !techDebtGloballyDisabled(),
+      techDebtStored: settings.techDebtSection,
+      globallyDisabled: techDebtGloballyDisabled(),
+      available: settings.available,
+      canManage: isCompanyManager(ctx),
+    };
+  }),
+
+  /**
+   * Liga ou desliga a seção "Débitos técnicos e propostas de melhoria" no chat (admin/owner)
+   */
+  setTechDebtSection: tenantProcedure
+    .input(z.object({ enabled: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      if (!isCompanyManager(ctx)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Só administradores da empresa podem mudar essa configuração" });
+      }
+      try {
+        const settings = await updateCompanySettings(ctx.tenant.companyId, { techDebtSection: input.enabled });
+        return { techDebtSection: settings.techDebtSection };
+      } catch (err) {
+        if (err instanceof CompanySettingsUnavailableError) {
+          throw new TRPCError({ code: "PRECONDITION_FAILED", message: err.message });
+        }
+        throw err;
+      }
+    }),
+
+  /**
+   * Marca ou desmarca uma fonte como débitos técnicos e propostas de melhoria (admin/owner)
+   */
+  setSourceTechDebt: tenantProcedure
+    .input(z.object({ sourceId: z.number(), techDebt: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      if (!isCompanyManager(ctx)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Só administradores da empresa podem marcar fontes" });
+      }
+      const source = await knowledgeDb.getKnowledgeSourceById(input.sourceId);
+      if (!source || source.companyId !== ctx.tenant.companyId) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Fonte de conhecimento não encontrada" });
+      }
+      const meta = { ...((source.metadata ?? {}) as Record<string, unknown>) };
+      if (input.techDebt) meta.category = knowledgeDb.TECH_DEBT_CATEGORY;
+      else delete meta.category;
+      await knowledgeDb.updateKnowledgeSource(input.sourceId, { metadata: meta });
+      return { success: true };
+    }),
+
+  /**
    * Create a new knowledge source (upload placeholder)
    */
   createSource: tenantProcedure
@@ -48,6 +112,8 @@ export const knowledgeRouter = router({
         type: z.enum(['code_repo', 'document', 'story', 'miro_board']),
         teamId: z.number().optional(),
         sourceUrl: z.string().optional(), // For Miro board URL
+        /** Marca a fonte como material de débitos técnicos e propostas de melhoria */
+        techDebt: z.boolean().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -59,6 +125,7 @@ export const knowledgeRouter = router({
         status: 'pending',
         sourceUrl: input.sourceUrl,
         createdBy: ctx.user.id,
+        ...(input.techDebt ? { metadata: { category: knowledgeDb.TECH_DEBT_CATEGORY } } : {}),
       });
       
       return { sourceId };
@@ -99,10 +166,12 @@ export const knowledgeRouter = router({
       const fileBuffer = Buffer.from(input.fileContent, 'base64');
       await writeFile(filePath, fileBuffer);
       
-      // Update source with file path
+      // Update source with file path (mantém a categoria, se já marcada)
+      const category = (source.metadata as Record<string, unknown> | null)?.category;
       await knowledgeDb.updateKnowledgeSource(input.sourceId, {
         sourceUrl: filePath,
         metadata: {
+          ...(typeof category === "string" ? { category } : {}),
           originalFileName: input.fileName,
           fileSize: fileBuffer.length,
           uploadedAt: new Date().toISOString(),

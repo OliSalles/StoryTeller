@@ -199,3 +199,23 @@ export function mergeWithCode(docs: RankedChunk[], code: RankedChunk[]): RankedC
   }
   return out.sort((a, b) => b.score - a.score);
 }
+
+/**
+ * Trechos de débitos técnicos e propostas de melhoria que falam do assunto da pergunta.
+ * Só entra o que foi achado pelo texto exato ou com similaridade suficiente, para não
+ * trazer débitos de outros assuntos. Se nada passar, a resposta não ganha a seção.
+ */
+export function selectTechDebtChunks(
+  ranked: RankedChunk[],
+  opts: { minSimilarity?: number; maxChunks?: number; maxPerSource?: number; tokenBudget?: number } = {}
+): RankedChunk[] {
+  const minSimilarity = opts.minSimilarity ?? 0.4;
+  const relevant = ranked.filter(
+    (c) => c.matchedBy.includes("keyword") || (c.similarity ?? 0) >= minSimilarity
+  );
+  return selectDiverse(relevant, {
+    maxChunks: opts.maxChunks ?? 5,
+    maxPerSource: opts.maxPerSource ?? 3,
+    tokenBudget: opts.tokenBudget ?? 2500,
+  });
+}

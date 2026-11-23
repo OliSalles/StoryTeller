@@ -8,7 +8,9 @@ import { Badge } from "../components/ui/badge";
 import { Progress } from "../components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { toast } from "sonner";
-import { FileText, Upload, Database, RefreshCw, Trash2, Eye, Search, GitBranch } from "lucide-react";
+import { FileText, Upload, Database, RefreshCw, Trash2, Eye, Search, GitBranch, Wrench } from "lucide-react";
+import { Switch } from "../components/ui/switch";
+import { Checkbox } from "../components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import {
@@ -31,11 +33,16 @@ export function KnowledgeBase() {
   const [gitBranch, setGitBranch] = useState("");
   const [gitName, setGitName] = useState("");
   const [gitToken, setGitToken] = useState("");
+  const [uploadTechDebt, setUploadTechDebt] = useState(false);
 
   const utils = trpc.useUtils();
   
   // Queries
   const { data: sources, isLoading } = trpc.knowledge.listSources.useQuery();
+  const { data: settings } = trpc.knowledge.getSettings.useQuery();
+  const canManage = settings?.canManage ?? false;
+  const isTechDebtSource = (source: { metadata?: unknown }) =>
+    (source.metadata as any)?.category === "tech_debt";
 
   const filteredSources = useMemo(() => {
     const term = filterText.trim().toLowerCase();
@@ -53,6 +60,20 @@ export function KnowledgeBase() {
   );
 
   // Mutations
+  const setTechDebtSection = trpc.knowledge.setTechDebtSection.useMutation({
+    onSuccess: (res) => {
+      toast.success(res.techDebtSection ? "Seção de débitos técnicos ligada no chat" : "Seção de débitos técnicos desligada no chat");
+      utils.knowledge.getSettings.invalidate();
+    },
+    onError: (error) => toast.error(error.message),
+  });
+  const setSourceTechDebt = trpc.knowledge.setSourceTechDebt.useMutation({
+    onSuccess: (_res, vars) => {
+      toast.success(vars.techDebt ? "Fonte marcada como débitos técnicos e melhorias" : "Marcação de débitos técnicos removida");
+      utils.knowledge.listSources.invalidate();
+    },
+    onError: (error) => toast.error(error.message),
+  });
   const createSource = trpc.knowledge.createSource.useMutation();
   const uploadFile = trpc.knowledge.uploadFile.useMutation();
   const processSource = trpc.knowledge.processSource.useMutation({
@@ -131,6 +152,7 @@ export function KnowledgeBase() {
       const { sourceId } = await createSource.mutateAsync({
         name: sourceName,
         type,
+        techDebt: canManage && type === 'document' && uploadTechDebt ? true : undefined,
       });
 
       // Convert file to base64
@@ -151,6 +173,7 @@ export function KnowledgeBase() {
         toast.success("Upload concluído! Processamento iniciado.");
         setSelectedFile(null);
         setSourceName("");
+        setUploadTechDebt(false);
         utils.knowledge.listSources.invalidate();
       };
       reader.readAsDataURL(selectedFile);
@@ -185,6 +208,36 @@ export function KnowledgeBase() {
             Gerencie as fontes de conhecimento da empresa
           </p>
         </div>
+
+        {canManage && (
+          <Card>
+            <CardContent className="flex flex-col gap-3 py-4 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-start gap-3">
+                <Wrench className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <div>
+                  <p className="text-sm font-medium">Débitos técnicos e propostas de melhoria no chat</p>
+                  <p className="text-xs text-muted-foreground">
+                    Quando ligado, as respostas ganham uma seção no final com os débitos técnicos e as propostas de melhoria do assunto,
+                    usando só as fontes marcadas como débitos técnicos.
+                    {settings && !settings.available && " Recurso ainda não disponível neste ambiente."}
+                    {settings?.globallyDisabled && " Desligado pelo administrador do sistema."}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="tech-debt-toggle" className="text-sm">
+                  {settings?.techDebtSection ? "Ligado" : "Desligado"}
+                </Label>
+                <Switch
+                  id="tech-debt-toggle"
+                  checked={settings?.techDebtStored ?? false}
+                  disabled={!settings?.available || settings?.globallyDisabled || setTechDebtSection.isPending}
+                  onCheckedChange={(enabled) => setTechDebtSection.mutate({ enabled })}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Tabs defaultValue="sources" className="space-y-4">
           <TabsList>
@@ -231,6 +284,21 @@ export function KnowledgeBase() {
                       </p>
                     )}
                   </div>
+                  {canManage && (
+                    <div className="flex items-start gap-2">
+                      <Checkbox
+                        id="upload-tech-debt"
+                        checked={uploadTechDebt}
+                        onCheckedChange={(v) => setUploadTechDebt(v === true)}
+                      />
+                      <Label htmlFor="upload-tech-debt" className="text-sm font-normal leading-snug">
+                        Este documento traz débitos técnicos e propostas de melhoria
+                        <span className="block text-xs text-muted-foreground">
+                          Usado na seção de débitos técnicos do chat, quando ela estiver ligada.
+                        </span>
+                      </Label>
+                    </div>
+                  )}
                   <Button
                     onClick={handleUpload}
                     disabled={isUploading || !selectedFile}
@@ -460,6 +528,9 @@ export function KnowledgeBase() {
                                 <div className="flex items-center gap-2">
                                   <FileText className="h-4 w-4 shrink-0 text-primary" />
                                   <span className="truncate font-medium" title={source.name}>{source.name}</span>
+                                  {isTechDebtSource(source) && (
+                                    <Badge variant="outline" className="shrink-0 text-xs">Débitos e melhorias</Badge>
+                                  )}
                                 </div>
                                 {(source.metadata as any)?.kind === "git" && (
                                   <p className="mt-1 truncate text-xs text-muted-foreground" title={source.sourceUrl ?? ""}>
@@ -513,6 +584,18 @@ export function KnowledgeBase() {
                                       onClick={() => reindexSource.mutate({ sourceId: source.id })}
                                     >
                                       <RefreshCw className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                  {canManage && source.type !== "code_repo" && (
+                                    <Button
+                                      size="sm"
+                                      variant={isTechDebtSource(source) ? "secondary" : "ghost"}
+                                      title={isTechDebtSource(source) ? "Desmarcar como débitos técnicos e melhorias" : "Marcar como débitos técnicos e melhorias"}
+                                      aria-label="Marcar como débitos técnicos e melhorias"
+                                      disabled={setSourceTechDebt.isPending}
+                                      onClick={() => setSourceTechDebt.mutate({ sourceId: source.id, techDebt: !isTechDebtSource(source) })}
+                                    >
+                                      <Wrench className="h-4 w-4" />
                                     </Button>
                                   )}
                                   <Button
