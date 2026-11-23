@@ -8,6 +8,29 @@ import { Badge } from "../components/ui/badge";
 import { toast } from "sonner";
 import { Send, Bot, User, FileText, ArrowLeft } from "lucide-react";
 import { Link } from "wouter";
+import { Streamdown } from "streamdown";
+import { KnowledgeSourceViewer } from "../components/KnowledgeSourceViewer";
+
+type Citation = {
+  index: number;
+  sourceId: number;
+  sourceName: string;
+  sourceType?: string | null;
+  excerpt?: string;
+  similarity?: number;
+  matchedBy?: string[];
+};
+
+/** Agrupa as citações por fonte, mantendo os números dos trechos */
+function groupCitations(citations: Citation[]) {
+  const map = new Map<number, { sourceId: number; sourceName: string; indexes: number[] }>();
+  for (const c of citations) {
+    const g = map.get(c.sourceId) ?? { sourceId: c.sourceId, sourceName: c.sourceName, indexes: [] };
+    g.indexes.push(c.index);
+    map.set(c.sourceId, g);
+  }
+  return Array.from(map.values());
+}
 
 export function KnowledgeChat() {
   const [sessionId, setSessionId] = useState<number | null>(null);
@@ -18,6 +41,7 @@ export function KnowledgeChat() {
     citations?: Array<any>;
   }>>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [viewing, setViewing] = useState<{ id: number; name: string } | null>(null);
 
   const utils = trpc.useUtils();
 
@@ -167,23 +191,35 @@ export function KnowledgeChat() {
                               : "bg-muted"
                           }`}
                         >
-                          <p className="whitespace-pre-wrap">{msg.content}</p>
+                          {msg.role === "user" ? (
+                            <p className="whitespace-pre-wrap">{msg.content}</p>
+                          ) : (
+                            <div className="knowledge-answer prose prose-sm max-w-none dark:prose-invert prose-headings:mt-4 prose-headings:mb-2 prose-p:my-2 prose-li:my-0.5 prose-img:rounded-md">
+                              <Streamdown>{msg.content}</Streamdown>
+                            </div>
+                          )}
                         </div>
                       </div>
                       
                       {msg.citations && msg.citations.length > 0 && (
                         <div className="ml-11 space-y-1">
-                          <p className="text-xs text-muted-foreground">Fontes:</p>
+                          <p className="text-xs text-muted-foreground">Fontes consultadas (clique para ver os trechos):</p>
                           <div className="flex flex-wrap gap-2">
-                            {msg.citations.map((citation) => (
-                              <Badge
-                                key={citation.index}
-                                variant="outline"
-                                className="text-xs"
+                            {groupCitations(msg.citations as Citation[]).map((group) => (
+                              <button
+                                key={group.sourceId}
+                                type="button"
+                                onClick={() => setViewing({ id: group.sourceId, name: group.sourceName })}
+                                title="Ver os trechos desta fonte"
                               >
-                                <FileText className="mr-1 h-3 w-3" />
-                                [{citation.index}] {citation.sourceName} ({citation.similarity}%)
-                              </Badge>
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs cursor-pointer hover:bg-accent"
+                                >
+                                  <FileText className="mr-1 h-3 w-3" />
+                                  {group.sourceName} [{group.indexes.join(", ")}]
+                                </Badge>
+                              </button>
                             ))}
                           </div>
                         </div>
@@ -197,7 +233,7 @@ export function KnowledgeChat() {
                         <Bot className="h-4 w-4" />
                       </div>
                       <div className="flex-1 p-3 rounded-lg bg-muted">
-                        <p className="text-muted-foreground">Pensando...</p>
+                        <p className="text-muted-foreground">Buscando nas fontes e montando a explicação...</p>
                       </div>
                     </div>
                   )}
@@ -237,6 +273,14 @@ export function KnowledgeChat() {
             </div>
           </CardContent>
         </Card>
+        <KnowledgeSourceViewer
+          sourceId={viewing?.id ?? null}
+          sourceName={viewing?.name}
+          open={viewing !== null}
+          onOpenChange={(open) => {
+            if (!open) setViewing(null);
+          }}
+        />
       </div>
   );
 }

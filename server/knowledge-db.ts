@@ -606,3 +606,100 @@ export async function getKnowledgeChatMessagesBySessionId(sessionId: number) {
     .where(eq(knowledgeChatMessages.sessionId, sessionId))
     .orderBy(knowledgeChatMessages.createdAt);
 }
+
+// ============================================
+// Hybrid retrieval (vector + keyword), sem migrations
+// ============================================
+
+const ACCENTED = "áàâãäéèêëíìîïóòôõöúùûüçñ";
+const UNACCENTED = "aaaaaeeeeiiiiooooouuuucn";
+
+export type HybridChunkRow = {
+  chunk_id: number;
+  content: string;
+  similarity: number;
+  source_id: number;
+  source_name: string;
+  source_type: string | null;
+  metadata: any;
+};
+
+/**
+ * Busca vetorial direta (mesma lógica do search_similar_embeddings, mas devolvendo também o tipo da fonte)
+ */
+export async function searchVectorChunks(
+  queryEmbedding: number[],
+  companyId: number,
+  matchCount = 20,
+  sourceTypes?: string[]
+): Promise<HybridChunkRow[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const embeddingStr = `[${queryEmbedding.join(",")}]`;
+  const typeFilter =
+    sourceTypes && sourceTypes.length > 0
+      ? sql`AND ks.type::text IN (${sql.join(sourceTypes.map((t) => sql`${t}`), sql`, `)})`
+      : sql``;
+  const result = await db.execute(sql`
+    SELECT kc.id AS chunk_id, kc.content,
+           1 - (ke.embedding <=> ${embeddingStr}::vector) AS similarity,
+           ks.id AS source_id, ks.name AS source_name, ks.type::text AS source_type, kc.metadata
+    FROM knowledge_embeddings ke
+    JOIN knowledge_chunks kc ON ke.chunk_id = kc.id
+    JOIN knowledge_sources ks ON kc.source_id = ks.id
+    WHERE ke.company_id = ${companyId} ${typeFilter}
+    ORDER BY ke.embedding <=> ${embeddingStr}::vector
+    LIMIT ${matchCount}
+  `);
+  return (result.rows as any[]).map((r) => ({ ...r, similarity: Number(r.similarity) || 0 }));
+}
+
+/**
+ * Busca por palavra chave no texto dos trechos, sem acento e sem diferenciar maiúsculas.
+ * Termos já devem vir normalizados (minúsculos, sem acento).
+ */
+export async function searchKeywordChunks(
+  terms: string[],
+  companyId: number,
+  matchCount = 30,
+  sourceTypes?: string[]
+): Promise<HybridChunkRow[]> {
+  const db = await getDb();
+  if (!db || terms.length === 0) return [];
+
+  const escapeLike = (t: string) => t.replace(/[\\%_]/g, (m) => `\\${m}`);
+  const scoreParts = terms.map((t) => {
+    const weight = t.split(" ").length * 3 + Math.min(t.length, 20) / 10;
+    return sql`(CASE WHEN norm LIKE ${"%" + escapeLike(t) + "%"} THEN ${weight}::float ELSE 0 END)`;
+  });
+  const anyMatch = terms.map((t) => sql`norm LIKE ${"%" + escapeLike(t) + "%"}`);
+  const typeFilter =
+    sourceTypes && sourceTypes.length > 0
+      ? sql`AND ks.type::text IN (${sql.join(sourceTypes.map((t) => sql`${t}`), sql`, `)})`
+      : sql``;
+
+  const result = await db.execute(sql`
+    SELECT chunk_id, content, source_id, source_name, source_type, metadata,
+           (${sql.join(scoreParts, sql` + `)}) AS kw_score
+    FROM (
+      SELECT kc.id AS chunk_id, kc.content, ks.id AS source_id, ks.name AS source_name,
+             ks.type::text AS source_type, kc.metadata,
+             translate(lower(kc.content || ' ' || ks.name), ${ACCENTED}, ${UNACCENTED}) AS norm
+      FROM knowledge_chunks kc
+      JOIN knowledge_sources ks ON kc.source_id = ks.id
+      WHERE kc.company_id = ${companyId} ${typeFilter}
+    ) t
+    WHERE ${sql.join(anyMatch, sql` OR `)}
+    ORDER BY kw_score DESC, length(content) DESC
+    LIMIT ${matchCount}
+  `);
+  return (result.rows as any[]).map((r) => ({
+    chunk_id: r.chunk_id,
+    content: r.content,
+    similarity: 0,
+    source_id: r.source_id,
+    source_name: r.source_name,
+    source_type: r.source_type,
+    metadata: r.metadata,
+  }));
+}
