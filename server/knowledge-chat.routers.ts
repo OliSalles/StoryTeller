@@ -30,6 +30,43 @@ export function codeHeuristic(question: string): boolean {
   );
 }
 
+function fallbackConversationTitle(message: string) {
+  const cleaned = message.replace(/\s+/g, " ").replace(/[?!.]+$/g, "").trim();
+  if (cleaned.length <= 72) return cleaned;
+  return `${cleaned.slice(0, 69).trimEnd()}...`;
+}
+
+/** Título curto que resume o assunto da conversa */
+async function suggestConversationTitle(message: string, userId: number) {
+  try {
+    const res = await invokeLLM({
+      messages: [
+        {
+          role: "system",
+          content:
+            "Crie um título curto em português do Brasil para uma conversa, com no máximo 6 palavras. " +
+            "O título deve resumir o assunto da pergunta. Sem aspas, sem ponto final e sem prefixos como 'Título:'.",
+        },
+        { role: "user", content: message.slice(0, 500) },
+      ],
+      userId,
+      operation: "knowledge_chat_title",
+    });
+    const raw = res.choices[0]?.message?.content;
+    const text = typeof raw === "string" ? raw : "";
+    const firstLine = text
+      .split("\n")[0]
+      ?.replace(/^título:\s*/i, "")
+      .replace(/^["']|["']$/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (firstLine && firstLine.length >= 3 && firstLine.length <= 80) return firstLine;
+  } catch (err) {
+    console.warn("[knowledge-chat] Falha ao gerar título da conversa:", err);
+  }
+  return fallbackConversationTitle(message);
+}
+
 /**
  * Pede para a IA extrair termos de busca e sinônimos da pergunta.
  * Se falhar, segue só com a extração local de termos.
@@ -135,7 +172,20 @@ export const knowledgeChatRouter = router({
    * List user's chat sessions
    */
   listSessions: tenantProcedure.query(async ({ ctx }) => {
-    return knowledgeDb.getKnowledgeChatSessionsByUserId(ctx.user.id, ctx.tenant.companyId);
+    const sessions = await knowledgeDb.getKnowledgeChatSessionsByUserId(ctx.user.id, ctx.tenant.companyId);
+    await Promise.all(
+      sessions
+        .filter((session) => !session.title)
+        .map(async (session) => {
+          const messages = await knowledgeDb.getKnowledgeChatMessagesBySessionId(session.id);
+          const firstUser = messages.find((message) => message.role === "user" && message.content.trim());
+          if (!firstUser) return;
+          const title = fallbackConversationTitle(firstUser.content);
+          await knowledgeDb.setKnowledgeChatSessionTitle(session.id, title);
+          session.title = title;
+        })
+    );
+    return sessions;
   }),
 
   /**
@@ -327,16 +377,17 @@ export const knowledgeChatRouter = router({
         citations: citations as any,
       });
       
-      // Update session title if it's the first exchange
-      if (previousMessages.length <= 1 && !session.title) {
-        const title = input.message.substring(0, 60) + (input.message.length > 60 ? '...' : '');
+      // Título da conversa na primeira pergunta; depois só atualiza a data
+      const userTurns = previousMessages.filter((message) => message.role === "user").length;
+      let title = session.title;
+      if (!session.title && userTurns <= 1) {
+        title = await suggestConversationTitle(input.message, ctx.user.id);
         await knowledgeDb.updateKnowledgeChatSession(input.sessionId, { title });
       } else {
-        // Atualiza a data para a conversa subir no histórico
         await knowledgeDb.updateKnowledgeChatSession(input.sessionId, {});
       }
       
-      return { response: responseContent, citations };
+      return { response: responseContent, citations, title };
     }),
 
   /**

@@ -14,12 +14,19 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle2 } from "lucide-react";
+import { usePageSeo } from "@/hooks/usePageSeo";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [resetLink, setResetLink] = useState("");
+
+  usePageSeo({
+    title: "Esqueci minha senha",
+    path: "/forgot-password",
+    noIndex: true,
+  });
 
   const requestResetMutation = trpc.auth.requestPasswordReset.useMutation({
     onSuccess: (data) => {

@@ -43,6 +43,7 @@ import {
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
+import { usePageSeo } from "@/hooks/usePageSeo";
 import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
 import { Button } from "./ui/button";
 
@@ -127,6 +128,12 @@ function DashboardLayoutContent({
   const sidebarRef = useRef<HTMLDivElement>(null);
   const activeMenuItem = menuItems.find(item => item.path === location);
   const isMobile = useIsMobile();
+
+  usePageSeo({
+    title: activeMenuItem?.label ?? "Painel",
+    path: location,
+    noIndex: true,
+  });
 
   useEffect(() => {
     if (isCollapsed) {

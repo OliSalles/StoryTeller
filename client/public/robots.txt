@@ -1,0 +1,21 @@
+User-agent: *
+Allow: /
+Allow: /login
+Allow: /register
+Allow: /pricing
+
+Disallow: /generate
+Disallow: /history
+Disallow: /features/
+Disallow: /executions
+Disallow: /tokens
+Disallow: /account/
+Disallow: /config/
+Disallow: /company/
+Disallow: /knowledge
+Disallow: /subscription/
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /api/
+
+Sitemap: https://storytellerboard.com/sitemap.xml

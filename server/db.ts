@@ -162,7 +162,8 @@ export async function getUserByEmail(email: string) {
   }
 
   try {
-    const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    const normalizedEmail = email.trim().toLowerCase();
+    const result = await db.select().from(users).where(eq(users.email, normalizedEmail)).limit(1);
     return result.length > 0 ? result[0] : undefined;
   } catch (error) {
     console.error("[Database] Error in getUserByEmail:", error);
@@ -189,7 +190,7 @@ export async function createUser(user: { email: string; password: string; name: 
   if (!db) throw new Error("Database not available");
 
   const result = await db.insert(users).values({
-    email: user.email,
+    email: user.email.trim().toLowerCase(),
     password: user.password,
     name: user.name,
     loginMethod: "local",

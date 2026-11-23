@@ -21,12 +21,20 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { usePageSeo } from "@/hooks/usePageSeo";
 
 export default function Pricing() {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">(
     "monthly"
   );
   const [, setLocation] = useLocation();
+
+  usePageSeo({
+    title: "Planos",
+    description:
+      "Conheça os planos do Story Teller e escolha o ideal para gerar histórias de usuário com IA.",
+    path: "/pricing",
+  });
 
   const { data: plans, isLoading } = trpc.subscriptions.getPlans.useQuery();
   const { data: currentSubscription } =

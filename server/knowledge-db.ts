@@ -579,6 +579,13 @@ export async function updateKnowledgeChatSession(id: number, data: Partial<Inser
   return getKnowledgeChatSessionById(id);
 }
 
+/** Define só o título, sem alterar a ordem do histórico */
+export async function setKnowledgeChatSessionTitle(id: number, title: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(knowledgeChatSessions).set({ title }).where(eq(knowledgeChatSessions.id, id));
+}
+
 export async function deleteKnowledgeChatSession(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");

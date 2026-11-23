@@ -1,6 +1,7 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/GlassCard";
+import { usePageSeo } from "@/hooks/usePageSeo";
 import { Loader2, Sparkles, GitBranch, Zap, CheckCircle2 } from "lucide-react";
 import { useEffect } from "react";
 import { useLocation } from "wouter";
@@ -9,6 +10,13 @@ import { motion } from "framer-motion";
 export default function Home() {
   const { user, loading, isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
+
+  usePageSeo({
+    title: "Story Teller",
+    description:
+      "Transforme ideias em histórias de usuário com IA. Gere features, critérios de aceite e exporte para Jira ou Azure DevOps.",
+    path: "/",
+  });
 
   useEffect(() => {
     if (isAuthenticated && user) {
@@ -36,6 +44,10 @@ export default function Home() {
           >
             <img src="/logo.png" alt="Story Teller" className="w-60 h-60" />
           </motion.div>
+
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
+            Story Teller
+          </h1>
 
           <p className="text-xl text-foreground/70 max-w-2xl mx-auto leading-relaxed">
             Transforme ideias em épicas histórias de usuário. Conte histórias

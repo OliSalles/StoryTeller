@@ -32,8 +32,10 @@ export const authRouter = router({
       })
     )
     .mutation(async ({ input, ctx }) => {
-      // Verificar se o usuário já existe
-      const existingUser = await db.getUserByEmail(input.email);
+      const email = input.email.trim().toLowerCase();
+
+      // Verificar se o usuário já existe (email normalizado)
+      const existingUser = await db.getUserByEmail(email);
       if (existingUser) {
         throw new Error("Email já cadastrado");
       }
@@ -48,11 +50,24 @@ export const authRouter = router({
         false;
 
       // Criar usuário
-      const userId = await db.createUser({
-        email: input.email,
-        password: hashedPassword,
-        name: input.name,
-      });
+      let userId: number | undefined;
+      try {
+        userId = await db.createUser({
+          email,
+          password: hashedPassword,
+          name: input.name,
+        });
+      } catch (error: any) {
+        // Constraint UNIQUE no banco (email duplicado)
+        if (
+          error?.code === "23505" ||
+          error?.cause?.code === "23505" ||
+          String(error?.message || "").includes("users_email_key")
+        ) {
+          throw new Error("Email já cadastrado");
+        }
+        throw error;
+      }
 
       if (!userId) {
         throw new Error("Erro ao criar usuário");
@@ -61,13 +76,13 @@ export const authRouter = router({
       // Se for o primeiro usuário, torná-lo admin
       if (isFirstUser) {
         await db.upsertUser({
-          email: input.email,
+          email,
           role: "admin",
         });
       }
 
       // Criar JWT token
-      const token = await createJWT(userId, input.email);
+      const token = await createJWT(userId, email);
 
       // Definir cookie
       const cookieOptions = getSessionCookieOptions(ctx.req);
@@ -87,8 +102,10 @@ export const authRouter = router({
       })
     )
     .mutation(async ({ input, ctx }) => {
+      const email = input.email.trim().toLowerCase();
+
       // Buscar usuário
-      const user = await db.getUserByEmail(input.email);
+      const user = await db.getUserByEmail(email);
       if (!user) {
         throw new Error("Email ou senha inválidos");
       }
@@ -126,8 +143,10 @@ export const authRouter = router({
       })
     )
     .mutation(async ({ input }) => {
+      const email = input.email.trim().toLowerCase();
+
       // Buscar usuário
-      const user = await db.getUserByEmail(input.email);
+      const user = await db.getUserByEmail(email);
       
       // Por segurança, sempre retornar sucesso mesmo se o email não existir
       // Isso evita que atacantes descubram quais emails estão cadastrados

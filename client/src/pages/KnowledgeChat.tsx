@@ -139,49 +139,43 @@ function ConversationHistory({
               );
             }
             return (
-              <li key={s.id} className="group relative">
+              <li key={s.id} className={`flex items-center gap-0.5 rounded-md pr-1 ${active ? "bg-accent" : ""}`}>
                 <button
                   type="button"
                   onClick={() => onSelect(s.id)}
-                  className={`flex w-full items-center gap-2 rounded-md px-2 py-2 pr-16 text-left text-sm hover:bg-accent ${
-                    active ? "bg-accent font-medium" : ""
-                  }`}
+                  className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-accent"
                 >
                   <MessageSquare className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   <span className="min-w-0 flex-1 truncate" title={s.title ?? "Nova conversa"}>
                     {s.title || "Nova conversa"}
                   </span>
-                  <span className="shrink-0 text-[10px] text-muted-foreground group-hover:hidden">
-                    {formatWhen(s.updatedAt)}
-                  </span>
+                  <span className="shrink-0 text-[10px] text-muted-foreground">{formatWhen(s.updatedAt)}</span>
                 </button>
-                <div className="absolute right-1 top-1/2 hidden -translate-y-1/2 gap-0.5 group-hover:flex">
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-7 w-7"
-                    aria-label="Renomear"
-                    title="Renomear"
-                    onClick={() => {
-                      setDraft(s.title ?? "");
-                      setEditingId(s.id);
-                    }}
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-7 w-7 text-destructive hover:text-destructive"
-                    aria-label="Excluir"
-                    title="Excluir"
-                    onClick={() => {
-                      if (confirm("Excluir esta conversa?")) onDelete(s.id);
-                    }}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7 shrink-0"
+                  aria-label="Renomear"
+                  title="Renomear"
+                  onClick={() => {
+                    setDraft(s.title ?? "");
+                    setEditingId(s.id);
+                  }}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7 shrink-0 text-destructive hover:text-destructive"
+                  aria-label="Excluir conversa"
+                  title="Excluir conversa"
+                  onClick={() => {
+                    if (confirm("Excluir esta conversa? As mensagens serão apagadas.")) onDelete(s.id);
+                  }}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
               </li>
             );
           })}
@@ -198,6 +192,8 @@ export function KnowledgeChat() {
   const [viewing, setViewing] = useState<{ id: number; name: string } | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [loadingSession, setLoadingSession] = useState(false);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const utils = trpc.useUtils();
@@ -236,10 +232,26 @@ export function KnowledgeChat() {
     setSessionId(null);
     setMessages([]);
     setHistoryOpen(false);
+    setEditingTitle(false);
+  };
+
+  const beginEditTitle = () => {
+    if (!sessionId) return;
+    setTitleDraft(activeTitle || "");
+    setEditingTitle(true);
+  };
+
+  const saveTitle = () => {
+    const next = titleDraft.trim();
+    if (sessionId && next) {
+      renameSession.mutate({ sessionId, title: next });
+    }
+    setEditingTitle(false);
   };
 
   const openSession = async (id: number) => {
     setHistoryOpen(false);
+    setEditingTitle(false);
     if (id === sessionId) return;
     setLoadingSession(true);
     try {
@@ -325,13 +337,56 @@ export function KnowledgeChat() {
 
         {/* Conversa */}
         <section className="flex min-w-0 flex-1 flex-col rounded-lg border bg-card">
-          <div className="flex items-center justify-between border-b px-4 py-2">
-            <p className="truncate text-sm font-medium">{sessionId ? activeTitle || "Conversa" : "Nova conversa"}</p>
-            {sessionId && (
-              <Button size="sm" variant="ghost" onClick={startNewConversation}>
-                <Plus className="mr-1 h-3.5 w-3.5" />
-                Nova
-              </Button>
+          <div className="flex items-center justify-between gap-2 border-b px-4 py-2">
+            {editingTitle ? (
+              <div className="flex min-w-0 flex-1 items-center gap-1">
+                <Input
+                  autoFocus
+                  className="h-8 text-sm"
+                  value={titleDraft}
+                  onChange={(e) => setTitleDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveTitle();
+                    if (e.key === "Escape") setEditingTitle(false);
+                  }}
+                />
+                <Button size="icon" variant="ghost" className="h-8 w-8" aria-label="Salvar título" onClick={saveTitle}>
+                  <Check className="h-3.5 w-3.5" />
+                </Button>
+                <Button size="icon" variant="ghost" className="h-8 w-8" aria-label="Cancelar" onClick={() => setEditingTitle(false)}>
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="flex min-w-0 items-center gap-2 text-left text-sm font-medium disabled:cursor-default"
+                onClick={beginEditTitle}
+                disabled={!sessionId}
+                title={sessionId ? "Editar título" : undefined}
+              >
+                <span className="truncate">{sessionId ? activeTitle || "Conversa" : "Nova conversa"}</span>
+                {sessionId && <Pencil className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+              </button>
+            )}
+            {sessionId && !editingTitle && (
+              <div className="flex shrink-0 items-center">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => {
+                    if (confirm("Excluir esta conversa? As mensagens serão apagadas.")) handleDelete(sessionId);
+                  }}
+                >
+                  <Trash2 className="mr-1 h-3.5 w-3.5" />
+                  Excluir
+                </Button>
+                <Button size="sm" variant="ghost" onClick={startNewConversation}>
+                  <Plus className="mr-1 h-3.5 w-3.5" />
+                  Nova
+                </Button>
+              </div>
             )}
           </div>
 
