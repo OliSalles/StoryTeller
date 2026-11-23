@@ -10,7 +10,10 @@ import {
   reciprocalRankFusion,
   selectDiverse,
   extractImageUrls,
+  selectCodeChunks,
+  mergeWithCode,
 } from "./knowledge-retrieval";
+import { githubBlobUrl } from "./_core/code-chunker";
 
 const SOURCE_TYPE_NAMES: Record<string, string> = {
   code_repo: "código",
@@ -18,6 +21,13 @@ const SOURCE_TYPE_NAMES: Record<string, string> = {
   story: "user story",
   miro_board: "Miro",
 };
+
+/** Palavras que indicam que a pergunta pede o código */
+export function codeHeuristic(question: string): boolean {
+  return /\b(c[oó]digo|codigo|classe|m[eé]todo|fun[cç][aã]o|function|endpoint|api|rota|tabela|query|sql|implementa[cç][aã]o|implementad|por dentro|tecnicamente|arquivo|servi[cç]o|controller|service|reposit[oó]rio|bug|erro|exception|valida[cç][aã]o|c[aá]lculo|calcula|regra t[eé]cnica|integra[cç][aã]o)\b/i.test(
+    question
+  );
+}
 
 /**
  * Pede para a IA extrair termos de busca e sinônimos da pergunta.
@@ -27,7 +37,7 @@ async function planRetrieval(
   question: string,
   history: string,
   userId: number
-): Promise<{ terms: string[]; searchQuery: string }> {
+): Promise<{ terms: string[]; searchQuery: string; needsCode: boolean }> {
   try {
     const res = await invokeLLM({
       messages: [
@@ -35,10 +45,13 @@ async function planRetrieval(
           role: "system",
           content:
             "Você prepara buscas numa base de conhecimento empresarial em português. " +
-            "Responda SOMENTE com um JSON no formato {\"terms\": [\"...\"], \"searchQuery\": \"...\"}. " +
+            "Responda SOMENTE com um JSON no formato {\"terms\": [\"...\"], \"searchQuery\": \"...\", \"needsCode\": false}. " +
             "terms: de 3 a 8 termos curtos (1 a 3 palavras) para busca textual, incluindo o termo principal exatamente como o usuário escreveu, " +
             "variações (singular/plural), siglas e sinônimos de negócio. searchQuery: a pergunta reescrita de forma completa e autocontida, " +
-            "resolvendo referências ao histórico.",
+            "resolvendo referências ao histórico. needsCode: true quando a resposta fica melhor olhando o código fonte " +
+            "(como algo funciona por dentro, regras de cálculo, validações, integrações, endpoints, tabelas, erros, onde fica algo no sistema); " +
+            "false para perguntas só conceituais ou de processo de negócio. " +
+            "Em terms, quando needsCode for true, inclua também possíveis nomes técnicos em inglês ou camelCase (ex.: incentivoComercial, commercialIncentive).",
         },
         {
           role: "user",
@@ -51,20 +64,27 @@ async function planRetrieval(
     const raw = res.choices[0]?.message?.content;
     const text = typeof raw === "string" ? raw : JSON.stringify(raw ?? "");
     const match = text.match(/\{[\s\S]*\}/);
-    if (!match) return { terms: [], searchQuery: question };
+    if (!match) return { terms: [], searchQuery: question, needsCode: codeHeuristic(question) };
     const parsed = JSON.parse(match[0]);
     const terms = Array.isArray(parsed.terms)
       ? parsed.terms.filter((t: unknown) => typeof t === "string" && t.trim().length >= 3).slice(0, 8)
       : [];
     const searchQuery = typeof parsed.searchQuery === "string" && parsed.searchQuery.trim() ? parsed.searchQuery.trim() : question;
-    return { terms, searchQuery };
+    return { terms, searchQuery, needsCode: parsed.needsCode === true || codeHeuristic(question) };
   } catch (err) {
     console.warn("[KnowledgeChat] planRetrieval falhou, seguindo sem reescrita:", err);
-    return { terms: [], searchQuery: question };
+    return { terms: [], searchQuery: question, needsCode: codeHeuristic(question) };
   }
 }
 
-function buildAnswerPrompt(context: string, imageUrls: string[]): string {
+function buildAnswerPrompt(context: string, imageUrls: string[], hasCode = false): string {
+  const code = hasCode
+    ? `\n\nSOBRE TRECHOS DE CÓDIGO (fontes do tipo código):
+- Primeiro explique em linguagem de negócio. Depois inclua uma seção "### Como funciona no código" explicando o que o código faz, as regras e validações que ele aplica e a ordem das chamadas.
+- Cite o caminho do arquivo e as linhas entre crases, por exemplo \`src/services/incentivo.ts\` (linhas 10 a 40), junto com o número da fonte.
+- Mostre só pequenos trechos de código quando ajudarem (no máximo 15 linhas cada), em bloco com a linguagem certa.
+- Não invente arquivos, funções ou regras que não aparecem no contexto.`
+    : "";
   const images = imageUrls.length
     ? `\n\nIMAGENS QUE EXISTEM NA BASE (use apenas estas, se ajudarem a explicar, no formato ![descrição](url)):\n${imageUrls.map((u) => `- ${u}`).join("\n")}`
     : "";
@@ -83,7 +103,7 @@ FORMATO (markdown):
 2. Depois organize em seções com títulos (## ou ###), por exemplo: o que é, para que serve, regras principais, como funciona passo a passo, quem participa, exceções e pontos de atenção. Use só as seções que fizerem sentido.
 3. Use listas e passos numerados para deixar a leitura fácil. Use tabelas quando comparar itens.
 4. Quando o assunto for um processo, fluxo, jornada, integração ou sequência de etapas, inclua um diagrama Mermaid em um bloco \`\`\`mermaid usando "flowchart TD". Regras do diagrama: ids simples sem espaço (A, B, C1), textos dos nós entre aspas duplas, por exemplo A["Pedido criado"] --> B{"Aprovado?"}, sem parênteses, dois pontos ou ponto e vírgula fora das aspas, no máximo 15 nós.
-5. Termine com uma seção "### Fontes" listando, sem repetir, os nomes das fontes usadas com seus números.${images}
+5. Termine com uma seção "### Fontes" listando, sem repetir, os nomes das fontes usadas com seus números (para código, liste também os arquivos).${images}${code}
 
 CONTEXTO DA BASE DE CONHECIMENTO:
 
@@ -187,6 +207,13 @@ export const knowledgeChatRouter = router({
         : input.message;
       const queryEmbedding = await generateEmbedding(semanticQuery);
 
+      const codeSearch = plan.needsCode
+        ? Promise.all([
+            knowledgeDb.searchVectorChunks(queryEmbedding, ctx.tenant.companyId, 12, ["code_repo"]).catch(() => [] as knowledgeDb.HybridChunkRow[]),
+            knowledgeDb.searchKeywordChunks(keyTerms, ctx.tenant.companyId, 15, ["code_repo"]).catch(() => [] as knowledgeDb.HybridChunkRow[]),
+          ])
+        : Promise.resolve([[], []] as knowledgeDb.HybridChunkRow[][]);
+
       const [vectorChunks, keywordChunks] = await Promise.all([
         knowledgeDb.searchVectorChunks(queryEmbedding, ctx.tenant.companyId, 24).catch((err) => {
           console.error("[KnowledgeChat] vector search failed:", err);
@@ -198,14 +225,28 @@ export const knowledgeChatRouter = router({
         }),
       ]);
 
+      const [codeVector, codeKeyword] = await codeSearch;
+
       const ranked = reciprocalRankFusion([
         { kind: "vector", items: vectorChunks, weight: 1 },
         { kind: "keyword", items: keywordChunks, weight: 1.2 },
+        ...(plan.needsCode
+          ? [
+              { kind: "vector" as const, items: codeVector, weight: 0.8 },
+              { kind: "keyword" as const, items: codeKeyword, weight: 1 },
+            ]
+          : []),
       ]);
-      const finalChunks = selectDiverse(ranked, { maxChunks: 14, maxPerSource: 4, tokenBudget: 9000 });
+      const useCode = plan.needsCode && codeVector.length + codeKeyword.length > 0;
+      const finalChunks = useCode
+        ? mergeWithCode(
+            selectDiverse(ranked.filter((c) => c.source_type !== "code_repo"), { maxChunks: 10, maxPerSource: 4, tokenBudget: 6500 }),
+            selectCodeChunks(ranked.filter((c) => c.source_type === "code_repo"), { maxChunks: 6, maxPerFile: 2, tokenBudget: 4500 })
+          )
+        : selectDiverse(ranked, { maxChunks: 14, maxPerSource: 4, tokenBudget: 9000 });
 
       console.log(
-        `[KnowledgeChat] terms=${JSON.stringify(keyTerms)} vector=${vectorChunks.length} keyword=${keywordChunks.length} final=${finalChunks.length} sources=${new Set(finalChunks.map((c) => c.source_id)).size}`
+        `[KnowledgeChat] needsCode=${plan.needsCode} code=${codeVector.length}/${codeKeyword.length} terms=${JSON.stringify(keyTerms)} vector=${vectorChunks.length} keyword=${keywordChunks.length} final=${finalChunks.length} sources=${new Set(finalChunks.map((c) => c.source_id)).size}`
       );
 
       if (finalChunks.length === 0) {
@@ -227,13 +268,15 @@ export const knowledgeChatRouter = router({
         .map((chunk, i) => {
           const type = chunk.source_type ? ` (${SOURCE_TYPE_NAMES[chunk.source_type] ?? chunk.source_type})` : "";
           const path = chunk.metadata?.filePath || chunk.metadata?.path || chunk.metadata?.fileName;
-          return `[${i + 1}] Fonte: ${chunk.source_name}${type}${path ? ` | ${path}` : ""}\n${chunk.content}`;
+          const lines = chunk.metadata?.startLine ? ` (linhas ${chunk.metadata.startLine}-${chunk.metadata.endLine})` : "";
+          return `[${i + 1}] Fonte: ${chunk.source_name}${type}${path ? ` | ${path}${lines}` : ""}\n${chunk.content}`;
         })
         .join("\n\n---\n\n");
 
       const imageUrls = extractImageUrls(finalChunks);
 
-      const systemPrompt = buildAnswerPrompt(context, imageUrls);
+      const hasCode = finalChunks.some((c) => c.source_type === "code_repo");
+      const systemPrompt = buildAnswerPrompt(context, imageUrls, hasCode);
 
       // Build message history
       const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
@@ -264,6 +307,13 @@ export const knowledgeChatRouter = router({
         excerpt: chunk.content.substring(0, 200) + (chunk.content.length > 200 ? '...' : ''),
         similarity: Math.round((chunk.similarity || 0) * 100),
         matchedBy: chunk.matchedBy,
+        filePath: chunk.metadata?.filePath ?? null,
+        startLine: chunk.metadata?.startLine ?? null,
+        endLine: chunk.metadata?.endLine ?? null,
+        url:
+          chunk.source_type === "code_repo" && chunk.metadata?.repo && chunk.metadata?.filePath
+            ? githubBlobUrl(chunk.metadata.repo, chunk.metadata.commit || chunk.metadata.branch || "HEAD", chunk.metadata.filePath, chunk.metadata.startLine, chunk.metadata.endLine)
+            : null,
       }));
       
       // Save assistant response with citations

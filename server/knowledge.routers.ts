@@ -7,6 +7,33 @@ import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { nanoid } from "nanoid";
 
+import { encryptSecret } from "./_core/secret-box";
+import { parseGithubRepo } from "./_core/code-chunker";
+
+/** Remove segredos (token criptografado) antes de devolver a fonte ao cliente */
+export function sanitizeSourceMetadata<T extends { metadata?: unknown }>(source: T): T {
+  const meta = source.metadata as Record<string, unknown> | null | undefined;
+  if (!meta || typeof meta !== "object" || !("tokenEnc" in meta)) return source;
+  const { tokenEnc, ...rest } = meta;
+  return { ...source, metadata: { ...rest, hasToken: Boolean(tokenEnc) } };
+}
+
+function assertCanManageCode(ctx: { user: { role: string }; tenant: { isCompanyAdmin: boolean; isCompanyOwner: boolean } }) {
+  if (ctx.user.role !== "admin" && !ctx.tenant.isCompanyAdmin && !ctx.tenant.isCompanyOwner) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Só administradores da empresa podem conectar repositórios" });
+  }
+}
+
+const gitRepoUrlSchema = z
+  .string()
+  .trim()
+  .min(3, "Informe a URL do repositório")
+  .max(500)
+  .refine(
+    (v) => /^https:\/\/[\w.-]+\/[\w./-]+$/i.test(v) || parseGithubRepo(v) !== null,
+    "Use uma URL https do repositório, por exemplo https://github.com/empresa/projeto"
+  );
+
 // Upload directory for knowledge files
 const UPLOAD_DIR = process.env.UPLOAD_DIR || "/tmp/storyteller-uploads";
 
@@ -175,7 +202,7 @@ export const knowledgeRouter = router({
         sources.map(async (source) => {
           const embeddingsCount = await knowledgeDb.countEmbeddingsBySourceId(source.id);
           return {
-            ...source,
+            ...sanitizeSourceMetadata(source),
             chunksCount: chunkCounts[source.id] ?? 0,
             embeddingsCount,
           };
@@ -203,7 +230,7 @@ export const knowledgeRouter = router({
       // Get chunks for this source
       const chunks = await knowledgeDb.getKnowledgeChunksBySourceId(input.sourceId);
       
-      return { ...source, chunksCount: chunks.length };
+      return { ...sanitizeSourceMetadata(source), chunksCount: chunks.length };
     }),
 
   /**
@@ -243,7 +270,8 @@ export const knowledgeRouter = router({
           type: source.type,
           status: source.status,
           createdAt: source.createdAt,
-          sourceUrl: source.type === "miro_board" ? source.sourceUrl : null,
+          sourceUrl:
+            source.type === "miro_board" || (source.metadata as any)?.kind === "git" ? source.sourceUrl : null,
         },
         items,
         total,
@@ -311,6 +339,87 @@ export const knowledgeRouter = router({
       });
       
       return { success: true, message: "Re-indexação iniciada" };
+    }),
+
+  /**
+   * Conecta um repositório git (GitHub ou outro com https) como fonte de código.
+   * O token é opcional, fica criptografado no servidor e nunca volta para o cliente.
+   */
+  connectGitRepo: tenantProcedure
+    .input(
+      z.object({
+        repoUrl: gitRepoUrlSchema,
+        branch: z.string().trim().max(200).optional(),
+        name: z.string().trim().max(200).optional(),
+        token: z.string().trim().max(500).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      assertCanManageCode(ctx);
+      const gh = parseGithubRepo(input.repoUrl);
+      const repoUrl = gh ? `https://github.com/${gh.owner}/${gh.repo}` : input.repoUrl.replace(/\/+$/, "");
+      const name = input.name || (gh ? `${gh.owner}/${gh.repo}` : repoUrl.split("/").slice(-2).join("/"));
+
+      const sourceId = await knowledgeDb.createKnowledgeSource({
+        companyId: ctx.tenant.companyId,
+        teamId: null,
+        name,
+        type: "code_repo",
+        status: "pending",
+        sourceUrl: repoUrl,
+        createdBy: ctx.user.id,
+        metadata: {
+          kind: "git",
+          repoUrl,
+          branch: input.branch || null,
+          tokenEnc: input.token ? encryptSecret(input.token) : null,
+          connectedAt: new Date().toISOString(),
+        },
+      });
+
+      processKnowledgeSource(sourceId).catch((error) => {
+        console.error(`[Knowledge] Failed to index git repo for source ${sourceId}:`, error instanceof Error ? error.message : error);
+      });
+
+      return { sourceId, message: "Indexação do repositório iniciada" };
+    }),
+
+  /**
+   * Atualiza branch e/ou token de um repositório git conectado e reindexa.
+   * token: string nova substitui, string vazia remove, ausente mantém.
+   */
+  updateGitRepo: tenantProcedure
+    .input(
+      z.object({
+        sourceId: z.number(),
+        branch: z.string().trim().max(200).optional(),
+        token: z.string().trim().max(500).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      assertCanManageCode(ctx);
+      const source = await knowledgeDb.getKnowledgeSourceById(input.sourceId);
+      const meta = (source?.metadata ?? {}) as Record<string, any>;
+      if (!source || source.companyId !== ctx.tenant.companyId || meta.kind !== "git") {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Repositório não encontrado" });
+      }
+      const next: Record<string, any> = { ...meta };
+      if (input.branch !== undefined) next.branch = input.branch || null;
+      if (input.token !== undefined) next.tokenEnc = input.token ? encryptSecret(input.token) : null;
+
+      await knowledgeDb.deleteKnowledgeEmbeddingsBySourceId(input.sourceId);
+      await knowledgeDb.deleteKnowledgeChunksBySourceId(input.sourceId);
+      await knowledgeDb.updateKnowledgeSource(input.sourceId, {
+        metadata: next,
+        status: "pending",
+        processedChunks: 0,
+        totalChunks: 0,
+        errorMessage: null,
+      });
+      processKnowledgeSource(input.sourceId).catch((error) => {
+        console.error(`[Knowledge] Failed to reindex git repo ${input.sourceId}:`, error instanceof Error ? error.message : error);
+      });
+      return { success: true };
     }),
 
   /**

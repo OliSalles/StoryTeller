@@ -71,3 +71,16 @@ describe("knowledge retrieval", () => {
     expect(urls).toEqual(["https://x.com/a.png"]);
   });
 });
+
+import { selectCodeChunks, mergeWithCode } from "./knowledge-retrieval";
+
+describe("code retrieval", () => {
+  it("limita trechos por arquivo e junta sem duplicar", () => {
+    const mk = (id: number, file: string) => ({ ...chunk(id, 9), metadata: { filePath: file } });
+    const ranked = reciprocalRankFusion([{ kind: "vector", items: [mk(1, "a.ts"), mk(2, "a.ts"), mk(3, "a.ts"), mk(4, "b.ts")] }]);
+    const code = selectCodeChunks(ranked, { maxPerFile: 2 });
+    expect(code.map((c) => c.chunk_id)).toEqual([1, 2, 4]);
+    const merged = mergeWithCode([ranked[0]], code);
+    expect(merged.length).toBe(3);
+  });
+});

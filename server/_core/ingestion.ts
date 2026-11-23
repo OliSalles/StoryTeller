@@ -64,6 +64,23 @@ export async function generateEmbedding(text: string): Promise<number[]> {
 }
 
 /**
+ * Generate embeddings for many texts at once (lotes), keeping the input order
+ */
+export async function generateEmbeddings(texts: string[], batchSize = 64): Promise<number[][]> {
+  if (texts.length === 0) return [];
+  const openai = await getOpenAIClient();
+  const model = process.env.OPENAI_EMBEDDING_MODEL || "text-embedding-3-small";
+  const out: number[][] = [];
+  for (let i = 0; i < texts.length; i += batchSize) {
+    const batch = texts.slice(i, i + batchSize).map((t) => (t.length > 8000 ? t.slice(0, 8000) : t));
+    const response = await openai.embeddings.create({ model, input: batch });
+    const sorted = [...response.data].sort((a, b) => a.index - b.index);
+    for (const item of sorted) out.push(item.embedding);
+  }
+  return out;
+}
+
+/**
  * Process a code repository from ZIP file
  */
 export async function ingestCodeZip(
@@ -373,7 +390,11 @@ export async function processKnowledgeSource(
   });
   
   try {
-    if (source.type === 'code_repo') {
+    if (source.type === 'code_repo' && (source.metadata as any)?.kind === 'git') {
+      // Repositório git conectado (GitHub API ou git clone)
+      const { ingestGitRepo } = await import('./git-ingestion');
+      await ingestGitRepo(sourceId, source.companyId, source.metadata as any, onProgress);
+    } else if (source.type === 'code_repo') {
       // Process code repository
       if (!source.sourceUrl) {
         throw new Error('Source URL is required for code repository');

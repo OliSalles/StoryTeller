@@ -8,7 +8,7 @@ import { Badge } from "../components/ui/badge";
 import { Progress } from "../components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { toast } from "sonner";
-import { FileText, Upload, Database, RefreshCw, Trash2, MessageSquare, Eye, Search } from "lucide-react";
+import { FileText, Upload, Database, RefreshCw, Trash2, MessageSquare, Eye, Search, GitBranch } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import {
@@ -28,6 +28,10 @@ export function KnowledgeBase() {
   const [filterType, setFilterType] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [viewing, setViewing] = useState<{ id: number; name: string } | null>(null);
+  const [gitUrl, setGitUrl] = useState("");
+  const [gitBranch, setGitBranch] = useState("");
+  const [gitName, setGitName] = useState("");
+  const [gitToken, setGitToken] = useState("");
 
   const utils = trpc.useUtils();
   
@@ -82,6 +86,20 @@ export function KnowledgeBase() {
       utils.knowledge.listSources.invalidate();
       setMiroBoardUrl("");
       setMiroName("");
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const connectGitRepo = trpc.knowledge.connectGitRepo.useMutation({
+    onSuccess: () => {
+      toast.success("Repositório conectado! A indexação do código começou.");
+      utils.knowledge.listSources.invalidate();
+      setGitUrl("");
+      setGitBranch("");
+      setGitName("");
+      setGitToken("");
     },
     onError: (error) => {
       toast.error(error.message);
@@ -236,6 +254,82 @@ export function KnowledgeBase() {
 
               <Card>
                 <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <GitBranch className="h-4 w-4" />
+                    Conectar repositório Git (código)
+                  </CardTitle>
+                  <CardDescription>
+                    O chat passa a consultar o código quando a pergunta pedir. Use Reindexar para buscar a versão mais nova.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="git-url">URL do repositório</Label>
+                    <Input
+                      id="git-url"
+                      placeholder="https://github.com/empresa/projeto"
+                      value={gitUrl}
+                      onChange={(e) => setGitUrl(e.target.value)}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="git-branch">Branch (opcional)</Label>
+                      <Input
+                        id="git-branch"
+                        placeholder="main"
+                        value={gitBranch}
+                        onChange={(e) => setGitBranch(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="git-name">Nome (opcional)</Label>
+                      <Input
+                        id="git-name"
+                        placeholder="Backend"
+                        value={gitName}
+                        onChange={(e) => setGitName(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="git-token">Token de acesso (para repositório privado)</Label>
+                    <Input
+                      id="git-token"
+                      type="password"
+                      autoComplete="off"
+                      placeholder="ghp_... ou github_pat_..."
+                      value={gitToken}
+                      onChange={(e) => setGitToken(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Fica guardado criptografado no servidor e nunca é mostrado de novo. Basta permissão de leitura do conteúdo.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => {
+                      if (!gitUrl.trim()) {
+                        toast.error("Digite a URL do repositório");
+                        return;
+                      }
+                      connectGitRepo.mutate({
+                        repoUrl: gitUrl.trim(),
+                        branch: gitBranch.trim() || undefined,
+                        name: gitName.trim() || undefined,
+                        token: gitToken.trim() || undefined,
+                      });
+                    }}
+                    disabled={connectGitRepo.isPending}
+                    className="w-full"
+                  >
+                    <GitBranch className="mr-2 h-4 w-4" />
+                    {connectGitRepo.isPending ? "Conectando..." : "Conectar e indexar"}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
                   <CardTitle>Importar Miro Board</CardTitle>
                   <CardDescription>
                     Conecte um board do Miro via URL
@@ -378,6 +472,13 @@ export function KnowledgeBase() {
                                   <FileText className="h-4 w-4 shrink-0 text-primary" />
                                   <span className="truncate font-medium" title={source.name}>{source.name}</span>
                                 </div>
+                                {(source.metadata as any)?.kind === "git" && (
+                                  <p className="mt-1 truncate text-xs text-muted-foreground" title={source.sourceUrl ?? ""}>
+                                    Git{((source.metadata as any)?.branch || (source.metadata as any)?.resolvedBranch) ? ` · ${(source.metadata as any).branch || (source.metadata as any).resolvedBranch}` : ""}
+                                    {(source.metadata as any)?.lastCommit ? ` · ${String((source.metadata as any).lastCommit).slice(0, 7)}` : ""}
+                                    {(source.metadata as any)?.filesIndexed ? ` · ${(source.metadata as any).filesIndexed} arquivos` : ""}
+                                  </p>
+                                )}
                                 {source.status === 'processing' && (
                                   <div className="mt-2 space-y-1">
                                     <Progress value={getProgress(source)} />
@@ -413,11 +514,12 @@ export function KnowledgeBase() {
                                   >
                                     <Eye className="h-4 w-4" />
                                   </Button>
-                                  {source.status === 'completed' && (
+                                  {(source.status === 'completed' ||
+                                    (source.status === 'failed' && (source.metadata as any)?.kind === "git")) && (
                                     <Button
                                       size="sm"
                                       variant="ghost"
-                                      title="Reindexar"
+                                      title={(source.metadata as any)?.kind === "git" ? "Reindexar (buscar versão mais nova do repositório)" : "Reindexar"}
                                       aria-label="Reindexar"
                                       onClick={() => reindexSource.mutate({ sourceId: source.id })}
                                     >

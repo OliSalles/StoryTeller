@@ -160,3 +160,42 @@ export function extractImageUrls(chunks: Array<{ content: string; metadata?: any
   }
   return urls;
 }
+
+/**
+ * Seleciona trechos de código variando os arquivos (limite por arquivo) dentro do orçamento.
+ */
+export function selectCodeChunks(
+  ranked: RankedChunk[],
+  opts: { maxChunks?: number; maxPerFile?: number; tokenBudget?: number } = {}
+): RankedChunk[] {
+  const maxChunks = opts.maxChunks ?? 6;
+  const maxPerFile = opts.maxPerFile ?? 2;
+  const tokenBudget = opts.tokenBudget ?? 4500;
+  const perFile = new Map<string, number>();
+  const out: RankedChunk[] = [];
+  let tokens = 0;
+  for (const c of ranked) {
+    if (out.length >= maxChunks) break;
+    const file = `${c.source_id}:${c.metadata?.filePath ?? c.chunk_id}`;
+    const used = perFile.get(file) ?? 0;
+    if (used >= maxPerFile) continue;
+    const t = estimateTokens(c.content);
+    if (tokens + t > tokenBudget && out.length > 0) continue;
+    out.push(c);
+    tokens += t;
+    perFile.set(file, used + 1);
+  }
+  return out;
+}
+
+/** Junta trechos de documentos e de código, sem duplicar, mantendo a ordem por relevância */
+export function mergeWithCode(docs: RankedChunk[], code: RankedChunk[]): RankedChunk[] {
+  const seen = new Set<number>();
+  const out: RankedChunk[] = [];
+  for (const c of [...docs, ...code]) {
+    if (seen.has(c.chunk_id)) continue;
+    seen.add(c.chunk_id);
+    out.push(c);
+  }
+  return out.sort((a, b) => b.score - a.score);
+}

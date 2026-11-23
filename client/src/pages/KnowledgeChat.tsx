@@ -19,7 +19,23 @@ type Citation = {
   excerpt?: string;
   similarity?: number;
   matchedBy?: string[];
+  filePath?: string | null;
+  startLine?: number | null;
+  endLine?: number | null;
+  url?: string | null;
 };
+
+/** Arquivos de código citados, sem repetir */
+function codeFiles(citations: Citation[]) {
+  const seen = new Set<string>();
+  return citations.filter((c) => {
+    if (!c.filePath) return false;
+    const key = `${c.sourceId}:${c.filePath}:${c.startLine}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
 
 /** Agrupa as citações por fonte, mantendo os números dos trechos */
 function groupCitations(citations: Citation[]) {
@@ -222,6 +238,29 @@ export function KnowledgeChat() {
                               </button>
                             ))}
                           </div>
+                          {codeFiles(msg.citations as Citation[]).length > 0 && (
+                            <div className="pt-1 space-y-0.5">
+                              <p className="text-xs text-muted-foreground">Arquivos de código:</p>
+                              <ul className="text-xs space-y-0.5">
+                                {codeFiles(msg.citations as Citation[]).map((c) => (
+                                  <li key={`${c.sourceId}-${c.filePath}-${c.startLine}`} className="font-mono">
+                                    [{c.index}]{" "}
+                                    {c.url ? (
+                                      <a href={c.url} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                                        {c.filePath}
+                                        {c.startLine ? `:${c.startLine}-${c.endLine}` : ""}
+                                      </a>
+                                    ) : (
+                                      <span>
+                                        {c.filePath}
+                                        {c.startLine ? `:${c.startLine}-${c.endLine}` : ""}
+                                      </span>
+                                    )}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
