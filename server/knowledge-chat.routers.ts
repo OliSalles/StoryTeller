@@ -331,9 +331,26 @@ export const knowledgeChatRouter = router({
       if (previousMessages.length <= 1 && !session.title) {
         const title = input.message.substring(0, 60) + (input.message.length > 60 ? '...' : '');
         await knowledgeDb.updateKnowledgeChatSession(input.sessionId, { title });
+      } else {
+        // Atualiza a data para a conversa subir no histórico
+        await knowledgeDb.updateKnowledgeChatSession(input.sessionId, {});
       }
       
       return { response: responseContent, citations };
+    }),
+
+  /**
+   * Rename a chat session
+   */
+  renameSession: tenantProcedure
+    .input(z.object({ sessionId: z.number(), title: z.string().trim().min(1, "Título não pode estar vazio").max(120) }))
+    .mutation(async ({ ctx, input }) => {
+      const session = await knowledgeDb.getKnowledgeChatSessionById(input.sessionId);
+      if (!session || session.companyId !== ctx.tenant.companyId || session.userId !== ctx.user.id) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Sessão de chat não encontrada" });
+      }
+      await knowledgeDb.updateKnowledgeChatSession(input.sessionId, { title: input.title });
+      return { success: true };
     }),
 
   /**
