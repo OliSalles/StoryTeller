@@ -8,7 +8,7 @@ import { Badge } from "../components/ui/badge";
 import { Progress } from "../components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { toast } from "sonner";
-import { FileText, Upload, Database, RefreshCw, Trash2, MessageSquare, Eye, Search, GitBranch } from "lucide-react";
+import { FileText, Upload, Database, RefreshCw, Trash2, Eye, Search, GitBranch } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import {
@@ -16,7 +16,6 @@ import {
   SOURCE_STATUS_LABELS,
   SOURCE_TYPE_LABELS,
 } from "../components/KnowledgeSourceViewer";
-import { Link } from "wouter";
 
 export function KnowledgeBase() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -183,18 +182,8 @@ export function KnowledgeBase() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Base de Conhecimento</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Gerencie fontes de conhecimento para análise e chat
+            Gerencie as fontes de conhecimento da empresa
           </p>
-        </div>
-
-        {/* Command bar */}
-        <div className="flex items-center gap-2 pb-4 border-b">
-          <Link href="/knowledge/chat">
-            <Button size="sm" className="bg-primary hover:bg-primary/90">
-              <MessageSquare className="mr-2 h-3.5 w-3.5" />
-              Abrir Chat
-            </Button>
-          </Link>
         </div>
 
         <Tabs defaultValue="sources" className="space-y-4">

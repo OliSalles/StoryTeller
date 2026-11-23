@@ -5,12 +5,10 @@ import { Input } from "../components/ui/input";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { Badge } from "../components/ui/badge";
 import { toast } from "sonner";
-import { Send, Bot, User, FileText, ArrowLeft, Plus, MessageSquare, Pencil, Trash2, Check, X, History, Library } from "lucide-react";
-import { Link } from "wouter";
+import { Send, Bot, User, FileText, Plus, MessageSquare, Pencil, Trash2, Check, X, History } from "lucide-react";
 import { Streamdown } from "streamdown";
 import { KnowledgeSourceViewer } from "../components/KnowledgeSourceViewer";
 import { MermaidFallback } from "../components/MermaidFallback";
-import { KnowledgeBaseOverview } from "../components/KnowledgeBaseOverview";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "../components/ui/sheet";
 
 const MERMAID_OPTIONS = {
@@ -198,7 +196,6 @@ export function KnowledgeChat() {
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [viewing, setViewing] = useState<{ id: number; name: string } | null>(null);
-  const [overviewOpen, setOverviewOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [loadingSession, setLoadingSession] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -310,7 +307,7 @@ export function KnowledgeChat() {
 
   return (
     <div className="flex h-[calc(100vh-8rem)] min-h-0 flex-col gap-3">
-      {/* Cabeçalho: título à esquerda e botão da base à direita */}
+      {/* Cabeçalho */}
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" variant="outline" className="md:hidden" onClick={() => setHistoryOpen(true)}>
           <History className="mr-2 h-3.5 w-3.5" />
@@ -320,16 +317,6 @@ export function KnowledgeChat() {
           <h1 className="text-2xl font-semibold tracking-tight">Chat com Conhecimento</h1>
           <p className="text-sm text-muted-foreground">Pergunte sobre o negócio, os processos, o código e as stories da empresa</p>
         </div>
-        <Link href="/knowledge">
-          <Button size="sm" variant="ghost">
-            <ArrowLeft className="mr-2 h-3.5 w-3.5" />
-            Voltar
-          </Button>
-        </Link>
-        <Button size="sm" onClick={() => setOverviewOpen(true)}>
-          <Library className="mr-2 h-4 w-4" />
-          Revisar base de conhecimento
-        </Button>
       </div>
 
       <div className="flex min-h-0 flex-1 gap-3">
@@ -477,8 +464,6 @@ export function KnowledgeChat() {
           <div className="min-h-0 flex-1">{history}</div>
         </SheetContent>
       </Sheet>
-
-      <KnowledgeBaseOverview open={overviewOpen} onOpenChange={setOverviewOpen} />
 
       <KnowledgeSourceViewer
         sourceId={viewing?.id ?? null}
