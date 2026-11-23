@@ -10,6 +10,12 @@ import { Send, Bot, User, FileText, ArrowLeft } from "lucide-react";
 import { Link } from "wouter";
 import { Streamdown } from "streamdown";
 import { KnowledgeSourceViewer } from "../components/KnowledgeSourceViewer";
+import { MermaidFallback } from "../components/MermaidFallback";
+
+const MERMAID_OPTIONS = {
+  config: { theme: "default" as const, securityLevel: "strict" as const, flowchart: { htmlLabels: true } },
+  errorComponent: MermaidFallback,
+};
 
 type Citation = {
   index: number;
@@ -211,7 +217,9 @@ export function KnowledgeChat() {
                             <p className="whitespace-pre-wrap">{msg.content}</p>
                           ) : (
                             <div className="knowledge-answer prose prose-sm max-w-none dark:prose-invert prose-headings:mt-4 prose-headings:mb-2 prose-p:my-2 prose-li:my-0.5 prose-img:rounded-md">
-                              <Streamdown>{msg.content}</Streamdown>
+                              <Streamdown mermaid={MERMAID_OPTIONS} controls={{ mermaid: { fullscreen: true, download: true, copy: true, panZoom: true } }}>
+                                {msg.content}
+                              </Streamdown>
                             </div>
                           )}
                         </div>

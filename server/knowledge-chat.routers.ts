@@ -14,6 +14,7 @@ import {
   mergeWithCode,
 } from "./knowledge-retrieval";
 import { githubBlobUrl } from "./_core/code-chunker";
+import { sanitizeMarkdownMermaid } from "@shared/mermaid-sanitize";
 
 const SOURCE_TYPE_NAMES: Record<string, string> = {
   code_repo: "código",
@@ -294,9 +295,11 @@ export const knowledgeChatRouter = router({
         operation: 'knowledge_chat',
       });
       
-      const responseContent = typeof llmResponse.choices[0]?.message?.content === 'string'
+      const rawContent = typeof llmResponse.choices[0]?.message?.content === 'string'
         ? llmResponse.choices[0].message.content
         : JSON.stringify(llmResponse.choices[0]?.message?.content);
+      // Corrige a sintaxe dos diagramas Mermaid para que sejam desenhados no chat
+      const responseContent = sanitizeMarkdownMermaid(rawContent);
       
       // Prepare citations (uma por trecho, com a forma como foi encontrado)
       const citations = finalChunks.map((chunk, i) => ({
