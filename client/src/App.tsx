@@ -1,8 +1,9 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import DashboardLayout from "@/components/DashboardLayout";
+import { useAuth } from "@/_core/hooks/useAuth";
 import NotFound from "@/pages/NotFound";
-import { Route, Switch } from "wouter";
+import { Redirect, Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { PublicThemeToggle } from "./components/ThemeToggle";
@@ -19,13 +20,21 @@ import GenerateFeature from "./pages/GenerateFeature";
 import FeatureDetail from "./pages/FeatureDetail";
 import History from "./pages/History";
 import Executions from "./pages/Executions";
-import TokenUsage from "./pages/TokenUsage";
 import Pricing from "./pages/Pricing";
 import AccountSubscription from "./pages/AccountSubscription";
 import SubscriptionSuccess from "./pages/SubscriptionSuccess";
 import { CompanySettings } from "./pages/CompanySettings";
+import { CompanyDetail } from "./pages/CompanyDetail";
 import { KnowledgeBase } from "./pages/KnowledgeBase";
 import { KnowledgeChat } from "./pages/KnowledgeChat";
+
+/** Páginas do admin do sistema (users.role = admin), que é diferente de admin de empresa */
+function SystemAdminOnly({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (user?.role !== "admin") return <Redirect to="/knowledge/chat" replace />;
+  return <>{children}</>;
+}
 
 function Router() {
   return (
@@ -56,7 +65,9 @@ function Router() {
 
       <Route path={"/config/llm"}>
         <DashboardLayout>
-          <LLMConfig />
+          <SystemAdminOnly>
+            <LLMConfig />
+          </SystemAdminOnly>
         </DashboardLayout>
       </Route>
 
@@ -74,14 +85,14 @@ function Router() {
 
       <Route path={"/executions"}>
         <DashboardLayout>
-          <Executions />
+          <SystemAdminOnly>
+            <Executions />
+          </SystemAdminOnly>
         </DashboardLayout>
       </Route>
 
       <Route path={"/tokens"}>
-        <DashboardLayout>
-          <TokenUsage />
-        </DashboardLayout>
+        <Redirect to="/account/subscription?tab=uso" replace />
       </Route>
 
       <Route path={"/pricing"}>
@@ -105,6 +116,12 @@ function Router() {
       <Route path={"/company/settings"}>
         <DashboardLayout>
           <CompanySettings />
+        </DashboardLayout>
+      </Route>
+
+      <Route path={"/company/:id"}>
+        <DashboardLayout>
+          <CompanyDetail />
         </DashboardLayout>
       </Route>
 

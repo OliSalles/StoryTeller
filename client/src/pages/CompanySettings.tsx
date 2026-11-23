@@ -7,9 +7,12 @@ import { Label } from "../components/ui/label";
 import { Badge } from "../components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { toast } from "sonner";
-import { Building2, Users, Plus } from "lucide-react";
+import { Building2, ChevronRight, Users, Plus } from "lucide-react";
+import { Link, useLocation } from "wouter";
+import { setActiveCompanyId } from "../lib/active-company";
 
 export function CompanySettings() {
+  const [, setLocation] = useLocation();
   const [newCompanyName, setNewCompanyName] = useState("");
   const [newCompanySlug, setNewCompanySlug] = useState("");
   const [newTeamName, setNewTeamName] = useState("");
@@ -20,14 +23,17 @@ export function CompanySettings() {
   // Queries
   const { data: companies, isLoading: loadingCompanies } = trpc.companies.list.useQuery();
   const { data: teams, isLoading: loadingTeams } = trpc.teams.list.useQuery();
+  const { data: currentCompany } = trpc.companies.current.useQuery();
 
   // Mutations
   const createCompany = trpc.companies.create.useMutation({
-    onSuccess: () => {
-      toast.success("Empresa criada com sucesso!");
-      utils.companies.list.invalidate();
+    onSuccess: async (res) => {
+      setActiveCompanyId(res.companyId);
+      await utils.invalidate();
+      toast.success(`Empresa ${res.name} criada e em uso agora`);
       setNewCompanyName("");
       setNewCompanySlug("");
+      setLocation(`/company/${res.companyId}`);
     },
     onError: (error) => {
       toast.error(error.message);
@@ -141,9 +147,10 @@ export function CompanySettings() {
                 ) : companies && companies.length > 0 ? (
                   <div className="space-y-2">
                     {companies.map((company) => (
-                      <div
+                      <Link
                         key={company.id}
-                        className="flex items-center justify-between p-3 border rounded-lg"
+                        href={`/company/${company.id}`}
+                        className="flex items-center justify-between gap-3 p-3 border rounded-lg transition-colors hover:bg-muted/50"
                       >
                         <div>
                           <h3 className="font-semibold">{company.name}</h3>
@@ -151,11 +158,17 @@ export function CompanySettings() {
                             /{company.slug}
                           </p>
                         </div>
-                        <Badge variant={company.role === 'owner' ? 'default' : 'secondary'}>
-                          {company.role === 'owner' ? 'Proprietário' : 
-                           company.role === 'admin' ? 'Admin' : 'Membro'}
-                        </Badge>
-                      </div>
+                        <div className="flex items-center gap-2">
+                          {currentCompany?.id === company.id && (
+                            <Badge variant="outline">Em uso</Badge>
+                          )}
+                          <Badge variant={company.role === 'member' ? 'secondary' : 'default'}>
+                            {company.role === 'owner' ? 'Proprietário' : 
+                             company.role === 'admin' ? 'Admin' : 'Membro'}
+                          </Badge>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      </Link>
                     ))}
                   </div>
                 ) : (

@@ -69,13 +69,64 @@ export async function getCompaniesByUserId(userId: number) {
       createdAt: companies.createdAt,
       updatedAt: companies.updatedAt,
       role: companyMembers.role,
+      memberSince: companyMembers.createdAt,
     })
     .from(companies)
     .innerJoin(companyMembers, eq(companies.id, companyMembers.companyId))
     .where(eq(companyMembers.userId, userId))
-    .orderBy(desc(companies.createdAt));
-  
+    .orderBy(desc(companyMembers.createdAt), desc(companies.id));
+
   return result;
+}
+
+/** Quantos membros podem administrar a empresa (admin ou proprietário) */
+export async function countCompanyAdmins(companyId: number): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+  const result = await db.execute(sql`
+    SELECT count(*)::int AS n FROM company_members cm
+    JOIN companies c ON c.id = cm.company_id
+    WHERE cm.company_id = ${companyId} AND (cm.role IN ('admin', 'owner') OR cm.user_id = c.owner_id)
+  `);
+  return Number((result.rows as any[])[0]?.n ?? 0);
+}
+
+/** Números da empresa para a página de detalhe */
+export async function getCompanyStats(companyId: number) {
+  const db = await getDb();
+  if (!db) return { members: 0, admins: 0, sources: 0, chunks: 0, teams: 0 };
+  const result = await db.execute(sql`
+    SELECT
+      (SELECT count(*)::int FROM company_members WHERE company_id = ${companyId}) AS members,
+      (SELECT count(*)::int FROM knowledge_sources WHERE company_id = ${companyId}) AS sources,
+      (SELECT count(*)::int FROM knowledge_chunks WHERE company_id = ${companyId}) AS chunks,
+      (SELECT count(*)::int FROM teams WHERE company_id = ${companyId}) AS teams
+  `);
+  const row = (result.rows as any[])[0] ?? {};
+  return {
+    members: Number(row.members ?? 0),
+    admins: await countCompanyAdmins(companyId),
+    sources: Number(row.sources ?? 0),
+    chunks: Number(row.chunks ?? 0),
+    teams: Number(row.teams ?? 0),
+  };
+}
+
+/** Passa a propriedade para outro membro; o antigo proprietário vira admin */
+export async function transferCompanyOwnership(companyId: number, fromUserId: number, toUserId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.transaction(async (tx) => {
+    await tx.update(companies).set({ ownerId: toUserId, updatedAt: new Date() }).where(eq(companies.id, companyId));
+    await tx
+      .update(companyMembers)
+      .set({ role: "owner" })
+      .where(and(eq(companyMembers.companyId, companyId), eq(companyMembers.userId, toUserId)));
+    await tx
+      .update(companyMembers)
+      .set({ role: "admin" })
+      .where(and(eq(companyMembers.companyId, companyId), eq(companyMembers.userId, fromUserId)));
+  });
 }
 
 export async function updateCompany(id: number, data: Partial<InsertCompany>) {

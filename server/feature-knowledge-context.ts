@@ -45,11 +45,12 @@ function formatChunk(chunk: RankedChunk, index: number) {
  */
 export async function buildFeatureKnowledgeContext(
   prompt: string,
-  userId: number
+  userId: number,
+  preferredCompanyId?: number | null
 ): Promise<FeatureKnowledgeContext | null> {
   let companyId: number;
   try {
-    companyId = await getUserCompanyId(userId);
+    companyId = await getUserCompanyId(userId, preferredCompanyId);
   } catch {
     return null;
   }

@@ -34,7 +34,7 @@ export function UpgradeModal({
 
   const handleUpgrade = () => {
     onOpenChange(false);
-    setLocation("/pricing");
+    setLocation("/account/subscription?tab=planos");
   };
 
   return (

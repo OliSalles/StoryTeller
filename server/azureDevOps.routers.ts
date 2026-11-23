@@ -1,6 +1,7 @@
 import { z } from "zod";
-import { protectedProcedure, router } from "./_core/trpc";
+import { tenantProcedure, router } from "./_core/trpc";
 import * as db from "./db";
+import * as azureDb from "./azureDevOps-improved";
 import { TRPCError } from "@trpc/server";
 import { getUserSubscriptionInfo } from "./_core/subscription-guard";
 
@@ -8,10 +9,11 @@ import { getUserSubscriptionInfo } from "./_core/subscription-guard";
  * Azure DevOps router for exporting features
  */
 export const azureDevOpsRouter = router({
-  exportFeature: protectedProcedure
+  exportFeature: tenantProcedure
     .input(
       z.object({
         featureId: z.number(),
+        projectId: z.number(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -24,18 +26,29 @@ export const azureDevOpsRouter = router({
         });
       }
 
-      // Get Azure DevOps config
-      const azureConfig = await db.getAzureDevOpsConfigByUserId(ctx.user.id);
-      if (!azureConfig) {
+      const credentials = await azureDb.getCredentials(ctx.tenant.companyId);
+      if (!credentials) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Configuração do Azure DevOps não encontrada. Configure primeiro em Config. Azure DevOps.",
+          message: "A empresa ainda não tem conexão com o Azure DevOps. Peça a um administrador da empresa para configurar em Config. Azure DevOps.",
         });
       }
+      const project = await azureDb.getCompanyProject(ctx.tenant.companyId, input.projectId);
+      if (!project) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Projeto do Azure DevOps não encontrado nesta empresa" });
+      }
+      const azureConfig = {
+        organization: credentials.organization,
+        project: project.name,
+        pat: azureDb.revealPat(credentials.pat),
+        defaultArea: project.defaultArea,
+        defaultIteration: project.defaultIteration,
+        defaultState: project.defaultState,
+      };
 
       // Get feature and user stories
       const feature = await db.getFeatureById(input.featureId);
-      if (!feature) {
+      if (!feature || feature.userId !== ctx.user.id) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Feature não encontrada",

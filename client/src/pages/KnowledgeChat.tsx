@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { trpc } from "../lib/trpc";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
+import { Textarea } from "../components/ui/textarea";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { Badge } from "../components/ui/badge";
 import { toast } from "sonner";
@@ -494,15 +495,23 @@ export function KnowledgeChat() {
             </div>
           </ScrollArea>
 
-          <div className="flex gap-2 border-t p-3">
-            <Input
-              placeholder="Digite sua pergunta..."
+          <div className="flex items-end gap-2 border-t p-3">
+            <Textarea
+              placeholder="Digite sua pergunta... (Enter envia, Shift+Enter quebra linha)"
               value={message}
+              rows={3}
+              className="max-h-64 min-h-[5rem] resize-none"
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={handleKeyDown}
               disabled={busy || loadingSession}
             />
-            <Button onClick={handleSendMessage} disabled={!message.trim() || busy || loadingSession} aria-label="Enviar">
+            <Button
+              size="icon"
+              className="h-10 w-10 shrink-0"
+              onClick={handleSendMessage}
+              disabled={!message.trim() || busy || loadingSession}
+              aria-label="Enviar"
+            >
               <Send className="h-4 w-4" />
             </Button>
           </div>

@@ -7,7 +7,7 @@ import { ptBR } from "date-fns/locale";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/_core/hooks/useAuth";
 
-export default function TokenUsage() {
+export default function TokenUsage({ embedded = false }: { embedded?: boolean }) {
   const [period, setPeriod] = useState<number>(30);
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
@@ -50,11 +50,15 @@ export default function TokenUsage() {
     .slice(-14); // Últimos 14 dias
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className={embedded ? "space-y-6" : "container mx-auto p-6 space-y-6"}>
+      <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Uso de Tokens</h1>
-          <p className="text-muted-foreground mt-1">
+          {embedded ? (
+            <h2 className="text-lg font-semibold">Uso de tokens</h2>
+          ) : (
+            <h1 className="text-3xl font-bold">Uso de Tokens</h1>
+          )}
+          <p className={`text-muted-foreground ${embedded ? "text-sm" : "mt-1"}`}>
             Acompanhe o consumo de tokens da API de LLM
           </p>
         </div>

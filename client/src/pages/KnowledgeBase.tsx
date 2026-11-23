@@ -8,7 +8,8 @@ import { Badge } from "../components/ui/badge";
 import { Progress } from "../components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { toast } from "sonner";
-import { FileText, Upload, Database, RefreshCw, Trash2, Eye, Search, Wrench, Plug } from "lucide-react";
+import { FileText, Upload, Database, RefreshCw, Trash2, Eye, Search, Wrench, Plug, Lock } from "lucide-react";
+import { Link } from "wouter";
 import { KnowledgeConnections } from "../components/KnowledgeConnections";
 import { Switch } from "../components/ui/switch";
 import { Checkbox } from "../components/ui/checkbox";
@@ -36,6 +37,7 @@ export function KnowledgeBase() {
   const { data: sources, isLoading } = trpc.knowledge.listSources.useQuery();
   const { data: settings } = trpc.knowledge.getSettings.useQuery();
   const canManage = settings?.canManage ?? false;
+  const { data: currentCompany } = trpc.companies.current.useQuery();
   const isTechDebtSource = (source: { metadata?: unknown }) =>
     (source.metadata as any)?.category === "tech_debt";
 
@@ -174,9 +176,29 @@ export function KnowledgeBase() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Base de Conhecimento</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Gerencie as fontes de conhecimento da empresa
+            {currentCompany ? (
+              <>
+                Fontes de conhecimento da empresa{" "}
+                <Link href={`/company/${currentCompany.id}`} className="font-medium text-foreground hover:underline">
+                  {currentCompany.name}
+                </Link>
+              </>
+            ) : (
+              "Gerencie as fontes de conhecimento da empresa"
+            )}
           </p>
         </div>
+
+        {settings && !canManage && (
+          <Card>
+            <CardContent className="flex items-start gap-3 py-4">
+              <Lock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                Você pode consultar a base, mas só administradores da empresa podem adicionar, reindexar ou excluir fontes e conexões.
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         {canManage && (
           <Card>
@@ -218,10 +240,12 @@ export function KnowledgeBase() {
               <Plug className="mr-2 h-4 w-4" />
               Conexões
             </TabsTrigger>
-            <TabsTrigger value="upload">
-              <Upload className="mr-2 h-4 w-4" />
-              Upload
-            </TabsTrigger>
+            {canManage && (
+              <TabsTrigger value="upload">
+                <Upload className="mr-2 h-4 w-4" />
+                Upload
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="connections">
@@ -431,7 +455,7 @@ export function KnowledgeBase() {
                                   >
                                     <Eye className="h-4 w-4" />
                                   </Button>
-                                  {(source.status === 'completed' ||
+                                  {canManage && (source.status === 'completed' ||
                                     (source.status === 'failed' && (source.metadata as any)?.kind === "git")) && (
                                     <Button
                                       size="sm"
@@ -455,20 +479,22 @@ export function KnowledgeBase() {
                                       <Wrench className="h-4 w-4" />
                                     </Button>
                                   )}
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="text-destructive hover:text-destructive"
-                                    title="Excluir"
-                                    aria-label="Excluir"
-                                    onClick={() => {
-                                      if (confirm("Deseja realmente excluir esta fonte?")) {
-                                        deleteSource.mutate({ sourceId: source.id });
-                                      }
-                                    }}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
+                                  {canManage && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="text-destructive hover:text-destructive"
+                                      title="Excluir"
+                                      aria-label="Excluir"
+                                      onClick={() => {
+                                        if (confirm("Deseja realmente excluir esta fonte?")) {
+                                          deleteSource.mutate({ sourceId: source.id });
+                                        }
+                                      }}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  )}
                                 </div>
                               </TableCell>
                             </TableRow>

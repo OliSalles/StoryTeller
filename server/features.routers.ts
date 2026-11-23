@@ -6,6 +6,7 @@ import * as db from "./db";
 import { generateFeaturePdf } from "./pdf";
 import { checkTokenLimit, getUserSubscriptionInfo } from "./_core/subscription-guard";
 import { buildFeatureKnowledgeContext, featureKnowledgeInstructions } from "./feature-knowledge-context";
+import { requestedCompanyId } from "./_core/tenant-guard";
 
 /**
  * Global map to store active AbortControllers by execution log ID
@@ -249,7 +250,7 @@ Return your response in the following JSON format:
       try {
         console.log('[GENERATE] Starting LLM invocation...');
 
-      const knowledge = await buildFeatureKnowledgeContext(input.prompt, ctx.user.id).catch((err) => {
+      const knowledge = await buildFeatureKnowledgeContext(input.prompt, ctx.user.id, requestedCompanyId(ctx.req)).catch((err) => {
         console.warn('[GENERATE] Knowledge context failed, generating without it:', err);
         return null;
       });

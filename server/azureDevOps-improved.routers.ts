@@ -1,106 +1,115 @@
 /**
  * Azure DevOps - Rotas Melhoradas
- * Separação entre credenciais e projetos
+ * Separação entre credenciais e projetos. A configuração é da empresa ativa:
+ * todos os membros veem e exportam, só admins da empresa alteram.
  */
 
 import { z } from "zod";
-import { router, protectedProcedure } from "./_core/trpc";
+import { TRPCError } from "@trpc/server";
+import { router, tenantProcedure } from "./_core/trpc";
+import { canManageCompany } from "./_core/tenant-guard";
 import * as azureDb from "./azureDevOps-improved";
+
+function assertCanManageAzure(ctx: Parameters<typeof canManageCompany>[0]) {
+  if (!canManageCompany(ctx)) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Só administradores da empresa podem alterar a conexão com o Azure DevOps",
+    });
+  }
+}
+
+const projectFields = {
+  defaultArea: z.string().optional(),
+  defaultIteration: z.string().optional(),
+  defaultState: z.string().optional(),
+  defaultBoard: z.string().optional(),
+  defaultColumn: z.string().optional(),
+  defaultSwimlane: z.string().optional(),
+};
 
 export const azureDevOpsImprovedRouter = router({
   // ============ CREDENCIAIS ============
-  
+
   credentials: router({
-    // Obter credenciais do usuário
-    get: protectedProcedure.query(async ({ ctx }) => {
-      return await azureDb.getCredentials(ctx.user.id);
+    get: tenantProcedure.query(async ({ ctx }) => {
+      return azureDb.publicCredentials(await azureDb.getCredentials(ctx.tenant.companyId));
     }),
-    
-    // Salvar/Atualizar credenciais
-    save: protectedProcedure
+
+    // PAT vazio mantém o token já salvo
+    save: tenantProcedure
       .input(
         z.object({
-          organization: z.string().min(1, "Organização é obrigatória"),
-          pat: z.string().min(1, "Personal Access Token é obrigatório"),
+          organization: z.string().trim().min(1, "Organização é obrigatória"),
+          pat: z.string().trim().optional(),
         })
       )
       .mutation(async ({ ctx, input }) => {
-        return await azureDb.saveCredentials({
+        assertCanManageAzure(ctx);
+        const existing = await azureDb.getCredentials(ctx.tenant.companyId);
+        if (!input.pat && !existing) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Personal Access Token é obrigatório" });
+        }
+        const saved = await azureDb.saveCredentials({
+          companyId: ctx.tenant.companyId,
           userId: ctx.user.id,
           organization: input.organization,
-          pat: input.pat,
+          pat: input.pat || undefined,
         });
+        return azureDb.publicCredentials(saved);
       }),
   }),
-  
+
   // ============ PROJETOS ============
-  
+
   projects: router({
-    // Listar projetos do usuário
-    list: protectedProcedure.query(async ({ ctx }) => {
-      return await azureDb.getProjects(ctx.user.id);
+    list: tenantProcedure.query(async ({ ctx }) => {
+      return azureDb.getProjects(ctx.tenant.companyId);
     }),
-    
-    // Obter projeto específico
-    get: protectedProcedure
+
+    get: tenantProcedure
       .input(z.object({ id: z.number() }))
-      .query(async ({ input }) => {
-        return await azureDb.getProjectById(input.id);
+      .query(async ({ ctx, input }) => {
+        return azureDb.getCompanyProject(ctx.tenant.companyId, input.id);
       }),
-    
-    // Criar novo projeto
-    create: protectedProcedure
-      .input(
-        z.object({
-          name: z.string().min(1, "Nome é obrigatório"),
-          defaultArea: z.string().optional(),
-          defaultIteration: z.string().optional(),
-          defaultState: z.string().optional(),
-          defaultBoard: z.string().optional(),
-          defaultColumn: z.string().optional(),
-          defaultSwimlane: z.string().optional(),
-        })
-      )
+
+    create: tenantProcedure
+      .input(z.object({ name: z.string().trim().min(1, "Nome é obrigatório"), ...projectFields }))
       .mutation(async ({ ctx, input }) => {
-        return await azureDb.createProject({
-          userId: ctx.user.id,
+        assertCanManageAzure(ctx);
+        return azureDb.createProject({
           ...input,
+          userId: ctx.user.id,
+          companyId: ctx.tenant.companyId,
         });
       }),
-    
-    // Atualizar projeto
-    update: protectedProcedure
-      .input(
-        z.object({
-          id: z.number(),
-          name: z.string().optional(),
-          defaultArea: z.string().optional(),
-          defaultIteration: z.string().optional(),
-          defaultState: z.string().optional(),
-          defaultBoard: z.string().optional(),
-          defaultColumn: z.string().optional(),
-          defaultSwimlane: z.string().optional(),
-        })
-      )
-      .mutation(async ({ input }) => {
+
+    update: tenantProcedure
+      .input(z.object({ id: z.number(), name: z.string().trim().min(1).optional(), ...projectFields }))
+      .mutation(async ({ ctx, input }) => {
+        assertCanManageAzure(ctx);
         const { id, ...data } = input;
-        return await azureDb.updateProject(id, data);
+        const project = await azureDb.updateProject(ctx.tenant.companyId, id, data);
+        if (!project) throw new TRPCError({ code: "NOT_FOUND", message: "Projeto não encontrado" });
+        return project;
       }),
-    
-    // Deletar projeto (soft delete)
-    delete: protectedProcedure
+
+    // Soft delete
+    delete: tenantProcedure
       .input(z.object({ id: z.number() }))
-      .mutation(async ({ input }) => {
-        await azureDb.deleteProject(input.id);
+      .mutation(async ({ ctx, input }) => {
+        assertCanManageAzure(ctx);
+        await azureDb.deleteProject(ctx.tenant.companyId, input.id);
         return { success: true };
       }),
   }),
-  
+
   // ============ HELPER ============
-  
-  // Obter configuração completa (credenciais + projetos)
-  getFullConfig: protectedProcedure.query(async ({ ctx }) => {
-    return await azureDb.getFullConfig(ctx.user.id);
+
+  getFullConfig: tenantProcedure.query(async ({ ctx }) => {
+    return {
+      ...(await azureDb.getFullConfig(ctx.tenant.companyId)),
+      canManage: canManageCompany(ctx),
+    };
   }),
 });
-

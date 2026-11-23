@@ -32,9 +32,7 @@ import {
   Brain,
   GitBranch,
   Cloud,
-  TrendingUp,
   CreditCard,
-  Zap,
   Database,
   MessageSquare,
   Building2,
@@ -47,17 +45,16 @@ import { usePageSeo } from "@/hooks/usePageSeo";
 import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
 import { Button } from "./ui/button";
 
+// systemAdminOnly: só admins do sistema (users.role = admin), não admins de empresa
 const menuItems = [
   { icon: MessageSquare, label: "Knowledge Chat", path: "/knowledge/chat" },
   { icon: Sparkles, label: "Gerar Feature", path: "/generate" },
   { icon: History, label: "Histórico", path: "/history" },
   { icon: Database, label: "Base de Conhecimento", path: "/knowledge" },
-  { icon: FileText, label: "Execuções", path: "/executions" },
-  { icon: TrendingUp, label: "Uso de Tokens", path: "/tokens" },
-  { icon: Zap, label: "Planos", path: "/pricing" },
-  { icon: CreditCard, label: "Assinatura", path: "/account/subscription" },
+  { icon: FileText, label: "Execuções", path: "/executions", systemAdminOnly: true },
+  { icon: CreditCard, label: "Planos e Assinatura", path: "/account/subscription" },
   { icon: Building2, label: "Empresa & Times", path: "/company/settings" },
-  { icon: Brain, label: "Config. LLM", path: "/config/llm" },
+  { icon: Brain, label: "Config. LLM", path: "/config/llm", systemAdminOnly: true },
   // { icon: GitBranch, label: "Config. Jira", path: "/config/jira" }, // Oculto temporariamente
   { icon: Cloud, label: "Config. Azure DevOps", path: "/config/azure-devops" },
 ];
@@ -259,15 +256,7 @@ function DashboardLayoutContent({
             <SidebarContent className="gap-0 px-0">
               <SidebarMenu className="py-1">
                 {menuItems
-                  .filter(item => {
-                    if (
-                      item.path === "/config/llm" ||
-                      item.path === "/executions"
-                    ) {
-                      return user?.role === "admin";
-                    }
-                    return true;
-                  })
+                  .filter(item => !item.systemAdminOnly || user?.role === "admin")
                   .map(item => {
                     const isActive = location === item.path;
                     return (

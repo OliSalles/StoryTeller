@@ -2,7 +2,7 @@ import { NOT_ADMIN_ERR_MSG, UNAUTHED_ERR_MSG } from '@shared/const';
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import type { TrpcContext } from "./context";
-import { getTenantContext, type TenantContext } from "./tenant-guard";
+import { getTenantContext, requestedCompanyId, type TenantContext } from "./tenant-guard";
 
 const t = initTRPC.context<TrpcContext>().create({
   transformer: superjson,
@@ -56,8 +56,7 @@ const requireTenant = t.middleware(async opts => {
     throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
   }
 
-  // Get tenant context (company ID, roles, etc.)
-  const tenantCtx = await getTenantContext(ctx.user.id);
+  const tenantCtx = await getTenantContext(ctx.user.id, requestedCompanyId(ctx.req));
 
   return next({
     ctx: {

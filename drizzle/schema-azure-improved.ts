@@ -3,15 +3,16 @@ import { pgTable, serial, varchar, integer, timestamp, text, boolean } from "dri
 /**
  * Azure DevOps - Estrutura Melhorada
  * Separa credenciais (org + token) de projetos
- * Permite múltiplos projetos por usuário
+ * Pertencem à empresa: só admins da empresa alteram, todos os membros exportam
  */
 
-// Credenciais globais do Azure DevOps (1 por usuário)
+// Credenciais do Azure DevOps (1 por empresa)
 export const azureDevOpsCredentials = pgTable("azure_devops_credentials", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().unique(), // Cada usuário tem apenas 1 credencial
+  userId: integer("user_id").notNull(), // Quem salvou por último
+  companyId: integer("company_id").unique(),
   organization: varchar("organization", { length: 256 }).notNull(),
-  pat: text("pat").notNull(), // Personal Access Token
+  pat: text("pat").notNull(), // Personal Access Token, criptografado (secret-box)
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -19,10 +20,11 @@ export const azureDevOpsCredentials = pgTable("azure_devops_credentials", {
 export type AzureDevOpsCredentials = typeof azureDevOpsCredentials.$inferSelect;
 export type InsertAzureDevOpsCredentials = typeof azureDevOpsCredentials.$inferInsert;
 
-// Projetos do Azure DevOps (múltiplos por usuário)
+// Projetos do Azure DevOps (múltiplos por empresa)
 export const azureDevOpsProjects = pgTable("azure_devops_projects", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull(),
+  userId: integer("user_id").notNull(), // Quem criou
+  companyId: integer("company_id"),
   name: varchar("name", { length: 256 }).notNull(), // Nome do projeto no Azure DevOps
   
   // Configurações padrão (opcionais)

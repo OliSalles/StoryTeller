@@ -19,7 +19,7 @@ export default function SubscriptionSuccess() {
     
     if (!id) {
       toast.error("Session ID não encontrado na URL");
-      setLocation("/pricing");
+      setLocation("/account/subscription?tab=planos");
       return;
     }
     
@@ -104,7 +104,7 @@ export default function SubscriptionSuccess() {
               <Button variant="outline" onClick={() => setLocation("/account/subscription")} className="w-full">
                 Ver Minhas Assinaturas
               </Button>
-              <Button variant="outline" onClick={() => setLocation("/pricing")} className="w-full">
+              <Button variant="outline" onClick={() => setLocation("/account/subscription?tab=planos")} className="w-full">
                 Voltar para Preços
               </Button>
             </div>

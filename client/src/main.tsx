@@ -6,6 +6,7 @@ import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
 import { getLoginUrl } from "./const";
+import { getActiveCompanyId } from "./lib/active-company";
 import "./index.css";
 
 const queryClient = new QueryClient();
@@ -42,6 +43,10 @@ const trpcClient = trpc.createClient({
     httpBatchLink({
       url: "/api/trpc",
       transformer: superjson,
+      headers() {
+        const companyId = getActiveCompanyId();
+        return companyId ? { "x-company-id": String(companyId) } : {};
+      },
       fetch(input, init) {
         return globalThis.fetch(input, {
           ...(init ?? {}),

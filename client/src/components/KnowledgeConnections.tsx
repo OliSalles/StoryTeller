@@ -132,7 +132,7 @@ function ConnectionCard({ source, canManage, miroServerToken, onView }: { source
   const utils = trpc.useUtils();
   const isGit = isGitConnection(source);
   const m = meta(source);
-  const editable = isGit ? canManage : true;
+  const editable = canManage;
 
   const initialUrl = (isGit ? m.repoUrl : source.sourceUrl) ?? source.sourceUrl ?? "";
   const initialBranch = m.branch ?? "";
@@ -442,10 +442,12 @@ export function KnowledgeConnections({ sources, canManage, miroServerToken, onVi
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {canManage && <NewGitConnection />}
-        <NewMiroConnection miroServerToken={miroServerToken} />
-      </div>
+      {canManage && (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <NewGitConnection />
+          <NewMiroConnection miroServerToken={miroServerToken} />
+        </div>
+      )}
       <div className="space-y-3">
         <h2 className="text-sm font-medium text-muted-foreground">
           {connections.length > 0 ? `${connections.length} conexão(ões) ativa(s)` : "Nenhuma conexão ativa ainda"}

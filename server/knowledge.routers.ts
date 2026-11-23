@@ -9,6 +9,7 @@ import { nanoid } from "nanoid";
 
 import { encryptSecret } from "./_core/secret-box";
 import { parseGithubRepo } from "./_core/code-chunker";
+import { canManageCompany } from "./_core/tenant-guard";
 import {
   CompanySettingsUnavailableError,
   getCompanySettings,
@@ -24,13 +25,14 @@ export function sanitizeSourceMetadata<T extends { metadata?: unknown }>(source:
   return { ...source, metadata: { ...rest, hasToken: Boolean(tokenEnc) } };
 }
 
-function isCompanyManager(ctx: { user: { role: string }; tenant: { isCompanyAdmin: boolean; isCompanyOwner: boolean } }) {
-  return ctx.user.role === "admin" || ctx.tenant.isCompanyAdmin || ctx.tenant.isCompanyOwner;
-}
+type ManageCtx = Parameters<typeof canManageCompany>[0];
 
-function assertCanManageCode(ctx: { user: { role: string }; tenant: { isCompanyAdmin: boolean; isCompanyOwner: boolean } }) {
-  if (ctx.user.role !== "admin" && !ctx.tenant.isCompanyAdmin && !ctx.tenant.isCompanyOwner) {
-    throw new TRPCError({ code: "FORBIDDEN", message: "Só administradores da empresa podem conectar repositórios" });
+const isCompanyManager = (ctx: ManageCtx) => canManageCompany(ctx);
+
+/** Só administradores da empresa alteram a base; membros consultam */
+function assertCanManageKnowledge(ctx: ManageCtx) {
+  if (!canManageCompany(ctx)) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Só administradores da empresa podem alterar a base de conhecimento" });
   }
 }
 
@@ -118,6 +120,7 @@ export const knowledgeRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      assertCanManageKnowledge(ctx);
       const sourceId = await knowledgeDb.createKnowledgeSource({
         companyId: ctx.tenant.companyId,
         teamId: input.teamId || null,
@@ -145,6 +148,7 @@ export const knowledgeRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      assertCanManageKnowledge(ctx);
       // Verify source exists and belongs to company
       const source = await knowledgeDb.getKnowledgeSourceById(input.sourceId);
       
@@ -188,6 +192,7 @@ export const knowledgeRouter = router({
   processSource: tenantProcedure
     .input(z.object({ sourceId: z.number() }))
     .mutation(async ({ ctx, input }) => {
+      assertCanManageKnowledge(ctx);
       // Verify source exists and belongs to company
       const source = await knowledgeDb.getKnowledgeSourceById(input.sourceId);
       
@@ -224,6 +229,7 @@ export const knowledgeRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      assertCanManageKnowledge(ctx);
       // Create source for stories
       const sourceId = await knowledgeDb.createKnowledgeSource({
         companyId: ctx.tenant.companyId,
@@ -357,6 +363,7 @@ export const knowledgeRouter = router({
   deleteSource: tenantProcedure
     .input(z.object({ sourceId: z.number() }))
     .mutation(async ({ ctx, input }) => {
+      assertCanManageKnowledge(ctx);
       const source = await knowledgeDb.getKnowledgeSourceById(input.sourceId);
       
       if (!source || source.companyId !== ctx.tenant.companyId) {
@@ -382,6 +389,7 @@ export const knowledgeRouter = router({
   reindexSource: tenantProcedure
     .input(z.object({ sourceId: z.number() }))
     .mutation(async ({ ctx, input }) => {
+      assertCanManageKnowledge(ctx);
       const source = await knowledgeDb.getKnowledgeSourceById(input.sourceId);
       
       if (!source || source.companyId !== ctx.tenant.companyId) {
@@ -425,7 +433,7 @@ export const knowledgeRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      assertCanManageCode(ctx);
+      assertCanManageKnowledge(ctx);
       const gh = parseGithubRepo(input.repoUrl);
       const repoUrl = gh ? `https://github.com/${gh.owner}/${gh.repo}` : input.repoUrl.replace(/\/+$/, "");
       const name = input.name || (gh ? `${gh.owner}/${gh.repo}` : repoUrl.split("/").slice(-2).join("/"));
@@ -469,7 +477,7 @@ export const knowledgeRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      assertCanManageCode(ctx);
+      assertCanManageKnowledge(ctx);
       const source = await knowledgeDb.getKnowledgeSourceById(input.sourceId);
       const meta = (source?.metadata ?? {}) as Record<string, any>;
       if (!source || source.companyId !== ctx.tenant.companyId || meta.kind !== "git") {
@@ -515,6 +523,7 @@ export const knowledgeRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      assertCanManageKnowledge(ctx);
       const { extractBoardId } = await import("./_core/miro-ingestion");
       
       // Validate Miro URL
@@ -566,6 +575,7 @@ export const knowledgeRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      assertCanManageKnowledge(ctx);
       const source = await knowledgeDb.getKnowledgeSourceById(input.sourceId);
       if (!source || source.companyId !== ctx.tenant.companyId || source.type !== "miro_board") {
         throw new TRPCError({ code: "NOT_FOUND", message: "Board do Miro não encontrado" });

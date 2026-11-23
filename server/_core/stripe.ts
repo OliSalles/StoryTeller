@@ -61,7 +61,7 @@ export async function createCheckoutSession({
     ],
     mode: "subscription",
     success_url: `${appUrl}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${appUrl}/pricing`,
+    cancel_url: `${appUrl}/account/subscription?tab=planos`,
     metadata: {
       userId: userId.toString(),
       planId: planId.toString(),

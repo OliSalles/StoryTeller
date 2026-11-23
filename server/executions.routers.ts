@@ -1,16 +1,16 @@
 import { z } from "zod";
-import { protectedProcedure, router } from "./_core/trpc";
+import { adminProcedure, router } from "./_core/trpc";
 import * as db from "./db";
 
 /**
- * Executions router for viewing generation logs
+ * Executions router for viewing generation logs (só admins do sistema)
  */
 export const executionsRouter = router({
-  list: protectedProcedure.query(async ({ ctx }) => {
+  list: adminProcedure.query(async ({ ctx }) => {
     return db.getExecutionLogsByUserId(ctx.user.id);
   }),
 
-  getById: protectedProcedure
+  getById: adminProcedure
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }) => {
       const log = await db.getExecutionLogById(input.id);

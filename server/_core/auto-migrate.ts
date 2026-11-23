@@ -239,6 +239,104 @@ async function runKnowledgeBaseMigration(): Promise<MigrationResult> {
   }
 }
 
+/** Membership mais recente de cada usuário: empresa que herda as configs antigas por usuário */
+const HOME_COMPANY_CTE = `home AS (
+  SELECT DISTINCT ON (cm.user_id) cm.user_id, cm.company_id
+  FROM company_members cm
+  ORDER BY cm.user_id, cm.created_at DESC
+)`;
+
+/**
+ * Azure DevOps passa a pertencer à empresa (idempotente).
+ * Configs por usuário (inclusive a tabela legada azure_devops_configs) vão para a empresa do usuário;
+ * se a empresa já tiver credenciais, as dela prevalecem.
+ */
+const AZURE_COMPANY_STATEMENTS = [
+  `CREATE TABLE IF NOT EXISTS azure_devops_credentials (
+    id serial PRIMARY KEY,
+    user_id integer NOT NULL,
+    organization varchar(256) NOT NULL,
+    pat text NOT NULL,
+    created_at timestamp DEFAULT now() NOT NULL,
+    updated_at timestamp DEFAULT now() NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS azure_devops_projects (
+    id serial PRIMARY KEY,
+    user_id integer NOT NULL,
+    name varchar(256) NOT NULL,
+    default_area varchar(256),
+    default_iteration varchar(256),
+    default_state varchar(128),
+    default_board varchar(256),
+    default_column varchar(128),
+    default_swimlane varchar(128),
+    is_active boolean DEFAULT true NOT NULL,
+    created_at timestamp DEFAULT now() NOT NULL,
+    updated_at timestamp DEFAULT now() NOT NULL
+  )`,
+  `ALTER TABLE azure_devops_credentials ADD COLUMN IF NOT EXISTS company_id integer REFERENCES companies(id) ON DELETE CASCADE`,
+  `ALTER TABLE azure_devops_projects ADD COLUMN IF NOT EXISTS company_id integer REFERENCES companies(id) ON DELETE CASCADE`,
+  `ALTER TABLE azure_devops_credentials DROP CONSTRAINT IF EXISTS azure_devops_credentials_user_id_key`,
+  `ALTER TABLE azure_devops_credentials DROP CONSTRAINT IF EXISTS azure_devops_credentials_user_id_unique`,
+  `WITH ${HOME_COMPANY_CTE},
+  ranked AS (
+    SELECT c.id, h.company_id,
+      row_number() OVER (PARTITION BY h.company_id ORDER BY c.updated_at DESC) AS rn
+    FROM azure_devops_credentials c
+    JOIN home h ON h.user_id = c.user_id
+    WHERE c.company_id IS NULL
+      AND NOT EXISTS (SELECT 1 FROM azure_devops_credentials x WHERE x.company_id = h.company_id)
+  )
+  UPDATE azure_devops_credentials c SET company_id = r.company_id
+  FROM ranked r WHERE r.id = c.id AND r.rn = 1`,
+  `WITH ${HOME_COMPANY_CTE}
+  UPDATE azure_devops_projects p SET company_id = h.company_id
+  FROM home h
+  WHERE p.user_id = h.user_id AND p.company_id IS NULL`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS azure_devops_credentials_company_uq ON azure_devops_credentials(company_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_azure_projects_company ON azure_devops_projects(company_id)`,
+  `WITH ${HOME_COMPANY_CTE},
+  ranked AS (
+    SELECT l.*, h.company_id AS target_company,
+      row_number() OVER (PARTITION BY h.company_id ORDER BY l.updated_at DESC) AS rn
+    FROM azure_devops_configs l
+    JOIN home h ON h.user_id = l.user_id
+  )
+  INSERT INTO azure_devops_credentials (user_id, company_id, organization, pat)
+  SELECT r.user_id, r.target_company, r.organization, r.pat FROM ranked r
+  WHERE r.rn = 1
+    AND NOT EXISTS (SELECT 1 FROM azure_devops_credentials x WHERE x.company_id = r.target_company)`,
+  `WITH ${HOME_COMPANY_CTE}
+  INSERT INTO azure_devops_projects
+    (user_id, company_id, name, default_area, default_iteration, default_state, default_board, default_column, default_swimlane)
+  SELECT l.user_id, h.company_id, l.project, l.default_area, l.default_iteration, l.default_state,
+    l.default_board, l.default_column, l.default_swimlane
+  FROM azure_devops_configs l
+  JOIN home h ON h.user_id = l.user_id
+  JOIN azure_devops_credentials c ON c.company_id = h.company_id AND lower(c.organization) = lower(l.organization)
+  WHERE NOT EXISTS (
+    SELECT 1 FROM azure_devops_projects p WHERE p.company_id = h.company_id AND lower(p.name) = lower(l.project)
+  )`,
+];
+
+async function runAzureCompanyMigration(): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  for (let i = 0; i < AZURE_COMPANY_STATEMENTS.length; i++) {
+    const statement = AZURE_COMPANY_STATEMENTS[i];
+    try {
+      await db.execute(sql.raw(statement));
+    } catch (error: any) {
+      const pgError = error.cause || error;
+      const missingLegacy = pgError.code === '42P01' && statement.includes('azure_devops_configs');
+      if (!missingLegacy) {
+        console.warn(`[Auto-Migrate] ⚠️  Azure DevOps statement ${i + 1} failed: ${pgError.message}`);
+      }
+    }
+  }
+  console.log('[Auto-Migrate] ✅ Azure DevOps vinculado às empresas');
+}
+
 /**
  * Main auto-migration function
  * Called at server startup
@@ -266,6 +364,8 @@ export async function runAutoMigrations(): Promise<void> {
       // Don't crash the app - existing features should work
       return;
     }
+
+    await runAzureCompanyMigration();
 
     console.log('[Auto-Migrate] ✅ All migrations completed successfully');
   } catch (error: any) {

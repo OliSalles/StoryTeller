@@ -13,16 +13,81 @@ import {
   TrendingUp,
   Calendar,
   ExternalLink,
+  Zap,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useEffect, useState } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PricingPlans } from "./Pricing";
+import TokenUsage from "./TokenUsage";
+
+const TABS = ["plano", "planos", "uso"] as const;
+type Tab = (typeof TABS)[number];
+
+function tabFromSearch(search: string): Tab {
+  const value = new URLSearchParams(search).get("tab");
+  return (TABS as readonly string[]).includes(value ?? "") ? (value as Tab) : "plano";
+}
 
 export default function AccountSubscription() {
   const [, setLocation] = useLocation();
+  const search = useSearch();
+  const [tab, setTab] = useState<Tab>(() => tabFromSearch(search));
 
+  useEffect(() => {
+    setTab(tabFromSearch(search));
+  }, [search]);
+
+  const changeTab = (next: string) => {
+    const value = next as Tab;
+    setTab(value);
+    setLocation(`/account/subscription${value === "plano" ? "" : `?tab=${value}`}`, { replace: true });
+  };
+
+  return (
+    <div className="container mx-auto p-6 space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold">Planos e Assinatura</h1>
+        <p className="text-muted-foreground mt-1">
+          Seu plano atual, os planos disponíveis e o consumo de tokens
+        </p>
+      </div>
+
+      <Tabs value={tab} onValueChange={changeTab} className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="plano">
+            <CreditCard className="mr-2 h-4 w-4" />
+            Plano atual
+          </TabsTrigger>
+          <TabsTrigger value="planos">
+            <Zap className="mr-2 h-4 w-4" />
+            Planos
+          </TabsTrigger>
+          <TabsTrigger value="uso">
+            <TrendingUp className="mr-2 h-4 w-4" />
+            Uso de tokens
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="plano">
+          <CurrentPlan onSeePlans={() => changeTab("planos")} onSeeUsage={() => changeTab("uso")} />
+        </TabsContent>
+        <TabsContent value="planos">
+          <PricingPlans embedded />
+        </TabsContent>
+        <TabsContent value="uso">
+          <TokenUsage embedded />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function CurrentPlan({ onSeePlans, onSeeUsage }: { onSeePlans: () => void; onSeeUsage: () => void }) {
   const { data: subscription, isLoading: subLoading } =
     trpc.subscriptions.getCurrent.useQuery();
   const { data: usage, isLoading: usageLoading } =
@@ -57,14 +122,7 @@ export default function AccountSubscription() {
                                     sub?.stripeSubscriptionId?.startsWith('manual_test_');
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Minha Assinatura</h1>
-        <p className="text-muted-foreground mt-1">
-          Gerencie seu plano e acompanhe o uso
-        </p>
-      </div>
-
+    <div className="space-y-6">
       {/* Test Subscription Warning */}
       {!isFreePlan && isManualTestSubscription && (
         <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
@@ -137,7 +195,7 @@ export default function AccountSubscription() {
 
           <div className="flex gap-3">
             {isFreePlan ? (
-              <Button onClick={() => setLocation("/pricing")}>
+              <Button onClick={onSeePlans}>
                 Fazer Upgrade
               </Button>
             ) : isManualTestSubscription ? (
@@ -166,8 +224,8 @@ export default function AccountSubscription() {
               </Button>
             )}
 
-            {isFreePlan && (
-              <Button variant="outline" onClick={() => setLocation("/pricing")}>
+            {!isFreePlan && (
+              <Button variant="outline" onClick={onSeePlans}>
                 Ver Planos
               </Button>
             )}
@@ -229,11 +287,15 @@ export default function AccountSubscription() {
               <p className="text-sm text-muted-foreground mb-3">
                 Faça upgrade para ter features ilimitadas e muito mais tokens!
               </p>
-              <Button size="sm" onClick={() => setLocation("/pricing")}>
+              <Button size="sm" onClick={onSeePlans}>
                 Ver Planos
               </Button>
             </div>
           )}
+
+          <Button variant="link" className="h-auto p-0" onClick={onSeeUsage}>
+            Ver o consumo detalhado de tokens
+          </Button>
         </CardContent>
       </Card>
     </div>

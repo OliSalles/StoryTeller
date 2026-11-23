@@ -6,12 +6,20 @@
 import { TRPCError } from "@trpc/server";
 import { getCompanyMember, getCompanyById } from "../knowledge-db";
 
+/** Header com a empresa escolhida no cliente (validado contra a participação do usuário) */
+export const ACTIVE_COMPANY_HEADER = "x-company-id";
+
+export function requestedCompanyId(req?: { headers?: Record<string, string | string[] | undefined> } | null): number | null {
+  const header = req?.headers?.[ACTIVE_COMPANY_HEADER];
+  const value = Number(Array.isArray(header) ? header[0] : header);
+  return Number.isInteger(value) && value > 0 ? value : null;
+}
+
 /**
- * Get user's active company ID from context or session
- * For now, we'll use the first company the user belongs to
- * In the future, this could be stored in session/cookie for multi-company switching
+ * Empresa ativa do usuário: a pedida no header, se ele for membro;
+ * senão a empresa em que ele entrou por último (um convite novo vira a empresa padrão).
  */
-export async function getUserCompanyId(userId: number): Promise<number> {
+export async function getUserCompanyId(userId: number, requestedCompanyId?: number | null): Promise<number> {
   const { getCompaniesByUserId } = await import("../knowledge-db");
   const companies = await getCompaniesByUserId(userId);
   
@@ -22,8 +30,9 @@ export async function getUserCompanyId(userId: number): Promise<number> {
     });
   }
   
-  // For now, return the first company
-  // TODO: Store selected company in session/cookie
+  if (requestedCompanyId && companies.some((c) => c.id === requestedCompanyId)) {
+    return requestedCompanyId;
+  }
   return companies[0].id;
 }
 
@@ -102,6 +111,7 @@ export async function guardCompanyOwner(userId: number, companyId: number): Prom
 export interface TenantContext {
   userId: number;
   companyId: number;
+  role: "owner" | "admin" | "member";
   isCompanyAdmin: boolean;
   isCompanyOwner: boolean;
 }
@@ -109,16 +119,26 @@ export interface TenantContext {
 /**
  * Get full tenant context for a user
  */
-export async function getTenantContext(userId: number, companyId?: number): Promise<TenantContext> {
-  const activeCompanyId = companyId || await getUserCompanyId(userId);
+export async function getTenantContext(userId: number, requestedCompanyId?: number | null): Promise<TenantContext> {
+  const activeCompanyId = await getUserCompanyId(userId, requestedCompanyId);
   
-  const isAdmin = await checkCompanyAdmin(userId, activeCompanyId);
+  const member = await getCompanyMember(activeCompanyId, userId);
   const isOwner = await checkCompanyOwner(userId, activeCompanyId);
+  const role = isOwner ? "owner" : (member?.role ?? "member");
   
   return {
     userId,
     companyId: activeCompanyId,
-    isCompanyAdmin: isAdmin,
+    role,
+    isCompanyAdmin: role === "admin" || role === "owner",
     isCompanyOwner: isOwner,
   };
+}
+
+/**
+ * Pode alterar a base de conhecimento e as configurações da empresa ativa.
+ * Depende só do nível na empresa: admin do sistema (users.role) não vira admin de empresa.
+ */
+export function canManageCompany(ctx: { tenant: TenantContext }): boolean {
+  return ctx.tenant.isCompanyAdmin;
 }

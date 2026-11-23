@@ -24,17 +24,22 @@ import { Label } from "@/components/ui/label";
 import { usePageSeo } from "@/hooks/usePageSeo";
 
 export default function Pricing() {
-  const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">(
-    "monthly"
-  );
-  const [, setLocation] = useLocation();
-
   usePageSeo({
     title: "Planos",
     description:
       "Conheça os planos do Story Teller e escolha o ideal para gerar histórias de usuário com IA.",
     path: "/pricing",
   });
+
+  return <PricingPlans />;
+}
+
+/** Lista de planos; `embedded` remove o cabeçalho grande para uso dentro de Planos e Assinatura */
+export function PricingPlans({ embedded = false }: { embedded?: boolean }) {
+  const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">(
+    "monthly"
+  );
+  const [, setLocation] = useLocation();
 
   const { data: plans, isLoading } = trpc.subscriptions.getPlans.useQuery();
   const { data: currentSubscription } =
@@ -74,7 +79,7 @@ export default function Pricing() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className={`flex items-center justify-center ${embedded ? "min-h-[400px]" : "min-h-screen"}`}>
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -120,11 +125,13 @@ export default function Pricing() {
   const nextPlanName = getNextPlanName(currentPlanName);
 
   return (
-    <div className="container mx-auto px-4 py-12">
-      <div className="text-center mb-12">
-        <h1 className="text-4xl font-bold mb-4">
-          Escolha o plano ideal para você
-        </h1>
+    <div className={embedded ? "pt-2 pb-6" : "container mx-auto px-4 py-12"}>
+      <div className={`text-center ${embedded ? "mb-10" : "mb-12"}`}>
+        {!embedded && (
+          <h1 className="text-4xl font-bold mb-4">
+            Escolha o plano ideal para você
+          </h1>
+        )}
 
         {/* Mensagem personalizada se já tiver um plano */}
         {currentSubscription?.subscription &&
@@ -420,7 +427,7 @@ export default function Pricing() {
           })}
       </div>
 
-      <div className="text-center mt-12 text-sm text-muted-foreground">
+      <div className={`text-center mt-12 text-sm text-muted-foreground ${embedded ? "hidden" : ""}`}>
         <p>Todos os planos incluem acesso completo à plataforma</p>
         <p className="mt-2">
           Dúvidas?{" "}

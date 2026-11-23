@@ -5,7 +5,7 @@ import { GlassCard } from "@/components/GlassCard";
 import { trpc } from "@/lib/trpc";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { Loader2, Eye, EyeOff, Plus, Trash2, Edit2, Save, X } from "lucide-react";
+import { Loader2, Eye, EyeOff, Plus, Trash2, Edit2, Save, X, Lock } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -43,29 +43,31 @@ export default function AzureDevOpsConfigNew() {
   const [editDefaultIteration, setEditDefaultIteration] = useState("");
   const [editDefaultState, setEditDefaultState] = useState("");
 
+  const { data: currentCompany } = trpc.companies.current.useQuery();
+  const canManage = fullConfig?.canManage ?? false;
+  const hasPat = fullConfig?.credentials?.hasPat ?? false;
+
   // Carregar dados quando disponíveis
   useEffect(() => {
-    if (fullConfig?.credentials) {
-      setOrganization(fullConfig.credentials.organization || "");
-      setPat(fullConfig.credentials.pat || "");
-    }
-  }, [fullConfig]);
+    setOrganization(fullConfig?.credentials?.organization || "");
+    setPat("");
+  }, [fullConfig?.credentials?.organization, fullConfig?.credentials?.updatedAt]);
 
   const handleSaveCredentials = async () => {
-    if (!organization || !pat) {
+    if (!organization.trim() || (!pat.trim() && !hasPat)) {
       toast.error("Preencha Organização e Token");
       return;
     }
 
     try {
       await saveCredentialsMutation.mutateAsync({
-        organization,
-        pat,
+        organization: organization.trim(),
+        pat: pat.trim() || undefined,
       });
       toast.success("Credenciais salvas com sucesso!");
       refetch();
-    } catch (error) {
-      toast.error("Erro ao salvar credenciais");
+    } catch (error: any) {
+      toast.error(error?.message || "Erro ao salvar credenciais");
     }
   };
 
@@ -90,8 +92,8 @@ export default function AzureDevOpsConfigNew() {
       setNewDefaultIteration("");
       setNewDefaultState("");
       refetch();
-    } catch (error) {
-      toast.error("Erro ao adicionar projeto");
+    } catch (error: any) {
+      toast.error(error?.message || "Erro ao adicionar projeto");
     }
   };
 
@@ -118,8 +120,8 @@ export default function AzureDevOpsConfigNew() {
       toast.success("Projeto atualizado!");
       setEditingProjectId(null);
       refetch();
-    } catch (error) {
-      toast.error("Erro ao atualizar projeto");
+    } catch (error: any) {
+      toast.error(error?.message || "Erro ao atualizar projeto");
     }
   };
 
@@ -130,8 +132,8 @@ export default function AzureDevOpsConfigNew() {
       await deleteProjectMutation.mutateAsync({ id });
       toast.success("Projeto deletado!");
       refetch();
-    } catch (error) {
-      toast.error("Erro ao deletar projeto");
+    } catch (error: any) {
+      toast.error(error?.message || "Erro ao deletar projeto");
     }
   };
 
@@ -148,9 +150,16 @@ export default function AzureDevOpsConfigNew() {
       <div>
         <h1 className="text-3xl font-bold">Azure DevOps</h1>
         <p className="text-muted-foreground mt-2">
-          Configure suas credenciais e gerencie múltiplos projetos
+          Conexão da empresa{currentCompany ? ` ${currentCompany.name}` : ""}: vale para todos os funcionários na hora de exportar
         </p>
       </div>
+
+      {fullConfig && !canManage && (
+        <div className="flex items-start gap-3 rounded-lg border p-4 text-sm text-muted-foreground">
+          <Lock className="mt-0.5 h-4 w-4 shrink-0" />
+          Você pode exportar usando esta conexão, mas só administradores da empresa podem alterá-la.
+        </div>
+      )}
 
       {/* SEÇÃO 1: CREDENCIAIS */}
       <GlassCard className="p-6">
@@ -170,6 +179,7 @@ export default function AzureDevOpsConfigNew() {
               <Input
                 id="organization"
                 value={organization}
+                disabled={!canManage}
                 onChange={e => setOrganization(e.target.value)}
                 placeholder="MinhaOrganização"
                 className="bg-white/5 border-white/10 focus:border-primary/50"
@@ -186,8 +196,9 @@ export default function AzureDevOpsConfigNew() {
                   id="pat"
                   type={showPat ? "text" : "password"}
                   value={pat}
+                  disabled={!canManage}
                   onChange={e => setPat(e.target.value)}
-                  placeholder="••••••••••••••••••••"
+                  placeholder={hasPat ? "Token salvo. Deixe em branco para manter" : "••••••••••••••••••••"}
                   className="bg-white/5 border-white/10 focus:border-primary/50 pr-10"
                 />
                 <Button
@@ -210,6 +221,7 @@ export default function AzureDevOpsConfigNew() {
               </p>
             </div>
 
+            {canManage && (
             <Button
               onClick={handleSaveCredentials}
               disabled={saveCredentialsMutation.isPending}
@@ -227,6 +239,7 @@ export default function AzureDevOpsConfigNew() {
                 </>
               )}
             </Button>
+            )}
           </div>
         </div>
       </GlassCard>
@@ -244,6 +257,7 @@ export default function AzureDevOpsConfigNew() {
               </p>
             </div>
             
+            {canManage && (
             <Dialog open={isAddingProject} onOpenChange={setIsAddingProject}>
               <DialogTrigger asChild>
                 <Button>
@@ -331,6 +345,7 @@ export default function AzureDevOpsConfigNew() {
                 </div>
               </DialogContent>
             </Dialog>
+            )}
           </div>
 
           {/* Lista de Projetos */}
@@ -421,6 +436,7 @@ export default function AzureDevOpsConfigNew() {
                         </div>
                       </div>
                       
+                      {canManage && (
                       <div className="flex gap-2">
                         <Button
                           size="sm"
@@ -438,6 +454,7 @@ export default function AzureDevOpsConfigNew() {
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -446,7 +463,7 @@ export default function AzureDevOpsConfigNew() {
               <div className="text-center py-12 text-muted-foreground">
                 <p>Nenhum projeto configurado ainda.</p>
                 <p className="text-sm mt-2">
-                  Clique em "Adicionar Projeto" para começar.
+                  {canManage ? 'Clique em "Adicionar Projeto" para começar.' : "Peça a um administrador da empresa para adicionar."}
                 </p>
               </div>
             )}
