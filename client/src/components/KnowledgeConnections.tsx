@@ -436,9 +436,13 @@ export function KnowledgeConnections({ sources, canManage, miroServerToken, onVi
 
   return (
     <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {canManage && <NewGitConnection />}
+        <NewMiroConnection miroServerToken={miroServerToken} />
+      </div>
       <div className="space-y-3">
         <h2 className="text-sm font-medium text-muted-foreground">
-          {connections.length > 0 ? `${connections.length} conexão(ões) salva(s)` : "Nenhuma conexão salva ainda"}
+          {connections.length > 0 ? `${connections.length} conexão(ões) ativa(s)` : "Nenhuma conexão ativa ainda"}
         </h2>
         {connections.map((source) => (
           <ConnectionCard
@@ -449,10 +453,6 @@ export function KnowledgeConnections({ sources, canManage, miroServerToken, onVi
             onView={onView}
           />
         ))}
-      </div>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {canManage && <NewGitConnection />}
-        <NewMiroConnection miroServerToken={miroServerToken} />
       </div>
     </div>
   );

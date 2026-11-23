@@ -61,6 +61,34 @@ async function githubFetch(url: string, token?: string | null) {
   return res;
 }
 
+/** Descobre por que o GitHub respondeu 404: token inválido, sem acesso ao repositório ou branch inexistente */
+async function explainGithubNotFound(owner: string, repo: string, ref: string | undefined, token: string | null): Promise<string> {
+  const headers: Record<string, string> = {
+    Accept: "application/vnd.github+json",
+    "User-Agent": "StoryTeller-Knowledge",
+    "X-GitHub-Api-Version": "2022-11-28",
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const repoRes = await fetch(`https://api.github.com/repos/${owner}/${repo}`, { headers }).catch(() => null);
+  if (repoRes?.ok) {
+    return `A branch "${ref}" não existe em ${owner}/${repo}. Corrija a branch ou deixe em branco para usar a padrão.`;
+  }
+  if (!token) {
+    return `Repositório ${owner}/${repo} não encontrado. Se for privado, informe um token com acesso de leitura.`;
+  }
+  const userRes = await fetch("https://api.github.com/user", { headers }).catch(() => null);
+  if (userRes?.status === 401) {
+    return "O token salvo é inválido ou expirou no GitHub. Gere um novo e salve na conexão.";
+  }
+  const login = userRes?.ok ? ((await userRes.json()) as { login?: string }).login : null;
+  return (
+    `O token${login ? ` (usuário ${login})` : ""} não tem acesso a ${owner}/${repo}. ` +
+    `Em token fine-grained, inclua esse repositório em "Repository access" e dê "Contents: Read-only"` +
+    `${login && login.toLowerCase() !== owner.toLowerCase() ? `; o dono do repositório é "${owner}", então o token precisa ser criado com esse dono (ou aprovado pela organização)` : ""}. ` +
+    `Em token clássico, marque o escopo "repo".`
+  );
+}
+
 async function readGithubRepo(
   owner: string,
   repo: string,
@@ -69,12 +97,20 @@ async function readGithubRepo(
 ): Promise<{ files: RepoFile[]; commit: string; branch: string; skipped: number }> {
   const api = `https://api.github.com/repos/${owner}/${repo}`;
   let ref = branch?.trim();
-  if (!ref) {
-    const info = (await (await githubFetch(api, token)).json()) as { default_branch?: string };
-    ref = info.default_branch || "main";
+  let sha: string;
+  try {
+    if (!ref) {
+      const info = (await (await githubFetch(api, token)).json()) as { default_branch?: string };
+      ref = info.default_branch || "main";
+    }
+    const commitInfo = (await (await githubFetch(`${api}/commits/${encodeURIComponent(ref)}`, token)).json()) as { sha: string };
+    sha = commitInfo.sha;
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith("Repositório ou branch não encontrado")) {
+      throw new Error(await explainGithubNotFound(owner, repo, ref, token));
+    }
+    throw err;
   }
-  const commitInfo = (await (await githubFetch(`${api}/commits/${encodeURIComponent(ref)}`, token)).json()) as { sha: string };
-  const sha = commitInfo.sha;
 
   const zipRes = await githubFetch(`${api}/zipball/${sha}`, token);
   const dir = await mkdtemp(path.join(tmpdir(), "st-git-"));
