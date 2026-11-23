@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Card,
   CardContent,
@@ -13,16 +14,94 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Eye, EyeOff } from "lucide-react";
+import { usePageSeo } from "@/hooks/usePageSeo";
+
+// Só guardamos a preferência (sim ou não). Email e senha ficam no gerenciador
+// de senhas do navegador (Credential Management API), nunca no localStorage.
+const REMEMBER_KEY = "st_lembrar_dados";
+
+type PasswordCredentialCtor = new (data: {
+  id: string;
+  password: string;
+  name?: string;
+}) => Credential;
+
+function getPasswordCredentialCtor(): PasswordCredentialCtor | null {
+  if (typeof window === "undefined" || !navigator.credentials) return null;
+  const ctor = (window as unknown as { PasswordCredential?: PasswordCredentialCtor })
+    .PasswordCredential;
+  return ctor ?? null;
+}
+
+function readRememberPreference(): boolean {
+  try {
+    return localStorage.getItem(REMEMBER_KEY) !== "0";
+  } catch {
+    return true;
+  }
+}
 
 export default function Login() {
   const [, setLocation] = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [remember, setRemember] = useState<boolean>(readRememberPreference);
   const [error, setError] = useState("");
   const utils = trpc.useUtils();
 
+  usePageSeo({
+    title: "Entrar",
+    description: "Acesse sua conta no Story Teller para gerar histórias de usuário com IA.",
+    path: "/login",
+  });
+
+  // Preenche email e senha salvos no navegador, quando o usuário pediu para lembrar
+  useEffect(() => {
+    if (!remember || !getPasswordCredentialCtor()) return;
+    let cancelled = false;
+    navigator.credentials
+      .get({ password: true, mediation: "optional" } as CredentialRequestOptions)
+      .then(cred => {
+        const saved = cred as (Credential & { password?: string }) | null;
+        if (cancelled || !saved || saved.type !== "password" || !saved.password) return;
+        setEmail(current => current || saved.id);
+        setPassword(current => current || saved.password || "");
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // Só na abertura da página
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const saveCredentials = async (loginEmail: string, loginPassword: string) => {
+    try {
+      localStorage.setItem(REMEMBER_KEY, remember ? "1" : "0");
+    } catch {
+      // ignorar
+    }
+    const Ctor = getPasswordCredentialCtor();
+    if (!Ctor) return;
+    try {
+      if (remember) {
+        await navigator.credentials.store(
+          new Ctor({ id: loginEmail, password: loginPassword, name: loginEmail })
+        );
+      } else {
+        await navigator.credentials.preventSilentAccess();
+      }
+    } catch {
+      // Navegador recusou ou não suporta, segue o login normalmente
+    }
+  };
+
   const loginMutation = trpc.auth.login.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (_data, variables) => {
+      // Pedir ao navegador para lembrar email e senha (se marcado)
+      await saveCredentials(variables.email, variables.password);
       // Invalidar cache do usuário
       await utils.auth.me.invalidate();
       // Redirecionar com reload para garantir que o cookie seja lido
@@ -59,7 +138,7 @@ export default function Login() {
             Entre com sua conta para continuar
           </CardDescription>
         </CardHeader>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} method="post" action="/login" autoComplete="on">
           <CardContent className="space-y-4">
             {error && (
               <Alert variant="destructive">
@@ -71,12 +150,13 @@ export default function Login() {
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
+                name="email"
                 type="email"
                 placeholder="seu@email.com"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 disabled={loginMutation.isPending}
-                autoComplete="email"
+                autoComplete="username"
               />
             </div>
 
@@ -87,15 +167,46 @@ export default function Login() {
                   Esqueci minha senha
                 </Link>
               </div>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
+              <div className="relative">
+                <Input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  disabled={loginMutation.isPending}
+                  autoComplete="current-password"
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  onClick={() => setShowPassword(!showPassword)}
+                  disabled={loginMutation.isPending}
+                  aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="remember"
+                checked={remember}
+                onCheckedChange={checked => setRemember(checked === true)}
                 disabled={loginMutation.isPending}
-                autoComplete="current-password"
               />
+              <Label htmlFor="remember" className="text-sm font-normal cursor-pointer">
+                Lembrar meus dados
+              </Label>
             </div>
           </CardContent>
 
