@@ -70,7 +70,7 @@ export function EditStoryDialog({ story, open, onOpenChange, onSave }: EditStory
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] bg-background/95 backdrop-blur-xl border-white/10">
+      <DialogContent className="sm:max-w-[600px] bg-background/95 backdrop-blur-xl border-input dark:border-white/10">
         <DialogHeader>
           <DialogTitle>Editar História de Usuário</DialogTitle>
           <DialogDescription>
@@ -85,7 +85,7 @@ export function EditStoryDialog({ story, open, onOpenChange, onSave }: EditStory
               id="title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="bg-white/5 border-white/10 focus:border-primary/50"
+              className="bg-background dark:bg-white/5 border-input dark:border-white/10 focus:border-primary/50"
             />
           </div>
 
@@ -96,7 +96,7 @@ export function EditStoryDialog({ story, open, onOpenChange, onSave }: EditStory
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
-              className="bg-white/5 border-white/10 focus:border-primary/50"
+              className="bg-background dark:bg-white/5 border-input dark:border-white/10 focus:border-primary/50"
             />
           </div>
 
@@ -104,10 +104,10 @@ export function EditStoryDialog({ story, open, onOpenChange, onSave }: EditStory
             <div className="space-y-2">
               <Label htmlFor="priority">Prioridade</Label>
               <Select value={priority} onValueChange={(value: any) => setPriority(value)}>
-                <SelectTrigger className="bg-white/5 border-white/10">
+                <SelectTrigger className="bg-background dark:bg-white/5 border-input dark:border-white/10">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-background/95 backdrop-blur-sm border-white/10">
+                <SelectContent className="bg-background/95 backdrop-blur-sm border-input dark:border-white/10">
                   <SelectItem value="low">Baixa</SelectItem>
                   <SelectItem value="medium">Média</SelectItem>
                   <SelectItem value="high">Alta</SelectItem>
@@ -124,7 +124,7 @@ export function EditStoryDialog({ story, open, onOpenChange, onSave }: EditStory
                 value={storyPoints}
                 onChange={(e) => setStoryPoints(e.target.value)}
                 placeholder="1, 2, 3, 5, 8, 13..."
-                className="bg-white/5 border-white/10 focus:border-primary/50"
+                className="bg-background dark:bg-white/5 border-input dark:border-white/10 focus:border-primary/50"
               />
             </div>
           </div>
@@ -135,7 +135,7 @@ export function EditStoryDialog({ story, open, onOpenChange, onSave }: EditStory
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={isSaving}
-            className="bg-white/5 border-white/10"
+            className="bg-background dark:bg-white/5 border-input dark:border-white/10"
           >
             Cancelar
           </Button>

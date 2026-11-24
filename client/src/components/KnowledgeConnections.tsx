@@ -7,7 +7,7 @@ import { Label } from "./ui/label";
 import { Badge } from "./ui/badge";
 import { Progress } from "./ui/progress";
 import { toast } from "sonner";
-import { Eye, GitBranch, KeyRound, LayoutDashboard, RefreshCw, Save, Trash2 } from "lucide-react";
+import { Eye, GitBranch, Info, KeyRound, LayoutDashboard, RefreshCw, Save, Trash2 } from "lucide-react";
 import { SOURCE_STATUS_LABELS } from "./KnowledgeSourceViewer";
 
 type Source = {
@@ -413,6 +413,13 @@ function NewMiroConnection({ miroServerToken }: { miroServerToken: boolean }) {
             onChange={(e) => setToken(e.target.value)}
           />
           <p className="text-xs text-muted-foreground">Fica guardado criptografado no servidor e nunca é mostrado de novo.</p>
+        </div>
+        <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
+          <p>
+            Importar e reimportar o board <strong>consome tokens do seu plano</strong>: as imagens e os fluxos são lidos pela IA.
+            Boards grandes gastam mais.
+          </p>
         </div>
         <Button
           className="w-full"

@@ -86,7 +86,7 @@ export default function JiraConfig() {
               value={jiraUrl}
               onChange={(e) => setJiraUrl(e.target.value)}
               placeholder="https://sua-empresa.atlassian.net"
-              className="bg-white/5 border-white/10 focus:border-primary/50"
+              className="bg-background dark:bg-white/5 border-input dark:border-white/10 focus:border-primary/50"
             />
             <p className="text-sm text-muted-foreground">
               URL completa da sua instância Jira
@@ -103,7 +103,7 @@ export default function JiraConfig() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="seu-email@empresa.com"
-              className="bg-white/5 border-white/10 focus:border-primary/50"
+              className="bg-background dark:bg-white/5 border-input dark:border-white/10 focus:border-primary/50"
             />
             <p className="text-sm text-muted-foreground">
               Email da conta Jira para autenticação
@@ -120,7 +120,7 @@ export default function JiraConfig() {
               value={apiToken}
               onChange={(e) => setApiToken(e.target.value)}
               placeholder="••••••••••••••••"
-              className="bg-white/5 border-white/10 focus:border-primary/50"
+              className="bg-background dark:bg-white/5 border-input dark:border-white/10 focus:border-primary/50"
             />
             <p className="text-sm text-muted-foreground">
               Token de API gerado nas configurações do Jira
@@ -136,7 +136,7 @@ export default function JiraConfig() {
               value={defaultProject}
               onChange={(e) => setDefaultProject(e.target.value)}
               placeholder="PROJ"
-              className="bg-white/5 border-white/10 focus:border-primary/50"
+              className="bg-background dark:bg-white/5 border-input dark:border-white/10 focus:border-primary/50"
             />
             <p className="text-sm text-muted-foreground">
               Chave do projeto padrão para exportação (ex: PROJ, DEV)
@@ -169,7 +169,7 @@ export default function JiraConfig() {
                 disabled={testMutation.isPending}
                 variant="outline"
                 size="lg"
-                className="flex-1 bg-white/5 border-white/10 hover:bg-white/10"
+                className="flex-1 bg-background dark:bg-white/5 border-input dark:border-white/10 hover:bg-accent dark:hover:bg-white/10"
               >
                 {testMutation.isPending ? (
                   <>

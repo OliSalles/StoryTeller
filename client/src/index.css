@@ -71,7 +71,7 @@
   --destructive: #d13438; /* Red */
   --destructive-foreground: #ffffff;
   --border: #e1e1e1; /* Subtle 1px border */
-  --input: #ffffff;
+  --input: #b3b0ad; /* Borda dos campos: precisa contrastar com o card branco */
   --ring: #0078d4;
   --sidebar: #ffffff;
   --sidebar-foreground: #1b1a19;

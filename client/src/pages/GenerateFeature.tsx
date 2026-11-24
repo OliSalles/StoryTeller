@@ -107,7 +107,7 @@ export default function GenerateFeature() {
               Idioma da Geração
             </Label>
             <Select value={language} onValueChange={(value) => setLanguage(value as "pt" | "en")}>
-              <SelectTrigger className="bg-white/5 border-white/10 focus:border-primary/50">
+              <SelectTrigger className="bg-background dark:bg-white/5 border-input dark:border-white/10 focus:border-primary/50">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -125,7 +125,7 @@ export default function GenerateFeature() {
               Tecnologia / Plataforma <span className="text-sm font-normal text-muted-foreground">(Opcional)</span>
             </Label>
             <Select value={technology} onValueChange={setTechnology} disabled={generateMutation.isPending}>
-              <SelectTrigger className="bg-white/5 border-white/10 focus:border-primary/50">
+              <SelectTrigger className="bg-background dark:bg-white/5 border-input dark:border-white/10 focus:border-primary/50">
                 <SelectValue placeholder="Selecione uma tecnologia ou deixe em branco" />
               </SelectTrigger>
               <SelectContent>
@@ -154,13 +154,13 @@ export default function GenerateFeature() {
             </p>
           </div>
 
-          <div className="flex items-center space-x-3 p-4 rounded-lg bg-white/5 border border-white/10">
+          <div className="flex items-center space-x-3 p-4 rounded-lg bg-background dark:bg-white/5 border border-input dark:border-white/10">
             <Checkbox 
               id="includeTasks" 
               checked={includeTasks}
               onCheckedChange={(checked) => setIncludeTasks(checked as boolean)}
               disabled={generateMutation.isPending}
-              className="border-white/20"
+              className="border-input dark:border-white/20"
             />
             <Label 
               htmlFor="includeTasks" 
@@ -178,7 +178,7 @@ export default function GenerateFeature() {
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="Exemplo: Preciso de um sistema de notificações em tempo real onde os usuários possam receber alertas sobre atividades importantes, configurar preferências de notificação e visualizar histórico de notificações..."
-              className="min-h-[300px] bg-white/5 border-white/10 focus:border-primary/50 resize-none text-base leading-relaxed"
+              className="min-h-[300px] bg-background dark:bg-white/5 border-input dark:border-white/10 focus:border-primary/50 resize-none text-base leading-relaxed"
               disabled={generateMutation.isPending}
               maxLength={2000}
             />

@@ -109,7 +109,7 @@ export default function LLMConfig() {
             <div className="space-y-2">
               <Label htmlFor="provider">Provedor *</Label>
               <Select value={provider} onValueChange={handleProviderChange} disabled={!isAdmin}>
-                <SelectTrigger className="bg-white/5 border-white/10 focus:border-primary/50">
+                <SelectTrigger className="bg-background dark:bg-white/5 border-input dark:border-white/10 focus:border-primary/50">
                   <SelectValue placeholder="Selecione o provedor" />
                 </SelectTrigger>
                 <SelectContent>
@@ -128,7 +128,7 @@ export default function LLMConfig() {
             <div className="space-y-2">
               <Label htmlFor="model">Modelo *</Label>
               <Select value={model} onValueChange={setModel} disabled={!isAdmin}>
-                <SelectTrigger className="bg-white/5 border-white/10 focus:border-primary/50">
+                <SelectTrigger className="bg-background dark:bg-white/5 border-input dark:border-white/10 focus:border-primary/50">
                   <SelectValue placeholder="Selecione o modelo" />
                 </SelectTrigger>
                 <SelectContent>
@@ -186,7 +186,7 @@ export default function LLMConfig() {
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
                   placeholder="sk-..."
-                  className="bg-white/5 border-white/10 focus:border-primary/50 pr-10"
+                  className="bg-background dark:bg-white/5 border-input dark:border-white/10 focus:border-primary/50 pr-10"
                   disabled={!isAdmin}
                 />
                 <Button
@@ -210,7 +210,7 @@ export default function LLMConfig() {
             </div>
           </div>
 
-          <div className="space-y-4 pt-6 border-t border-white/10">
+          <div className="space-y-4 pt-6 border-t border-input dark:border-white/10">
             <h2 className="text-xl font-semibold">Parâmetros Avançados</h2>
             
             <div className="space-y-2">
@@ -223,7 +223,7 @@ export default function LLMConfig() {
                 max="2"
                 value={temperature}
                 onChange={(e) => setTemperature(e.target.value)}
-                className="bg-white/5 border-white/10 focus:border-primary/50"
+                className="bg-background dark:bg-white/5 border-input dark:border-white/10 focus:border-primary/50"
                 disabled={!isAdmin}
               />
               <p className="text-sm text-muted-foreground">
@@ -241,7 +241,7 @@ export default function LLMConfig() {
                 max="32000"
                 value={maxTokens}
                 onChange={(e) => setMaxTokens(e.target.value)}
-                className="bg-white/5 border-white/10 focus:border-primary/50"
+                className="bg-background dark:bg-white/5 border-input dark:border-white/10 focus:border-primary/50"
                 disabled={!isAdmin}
               />
               <p className="text-sm text-muted-foreground">

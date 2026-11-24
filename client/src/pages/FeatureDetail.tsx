@@ -196,7 +196,7 @@ export default function FeatureDetail() {
         <Button
           variant="ghost"
           onClick={() => setLocation("/history")}
-          className="gap-2 hover:bg-white/5"
+          className="gap-2 hover:bg-accent dark:hover:bg-white/5"
         >
           <ArrowLeft className="w-4 h-4" />
           Voltar
@@ -205,7 +205,7 @@ export default function FeatureDetail() {
         <Button
           variant="outline"
           onClick={() => setShowRefineDialog(true)}
-          className="gap-2 bg-white/5 border-white/10 hover:bg-white/10"
+          className="gap-2 bg-background dark:bg-white/5 border-input dark:border-white/10 hover:bg-accent dark:hover:bg-white/10"
         >
           <Sparkles className="w-4 h-4" />
           Refinar com IA
@@ -232,7 +232,7 @@ export default function FeatureDetail() {
                 )}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-background/95 backdrop-blur-sm border-white/10">
+            <DropdownMenuContent align="end" className="bg-background/95 backdrop-blur-sm border-input dark:border-white/10">
               <DropdownMenuItem 
                 onClick={handleExportJira} 
                 className="cursor-pointer"
@@ -287,7 +287,7 @@ export default function FeatureDetail() {
                 <Badge variant="outline" className="bg-primary/20 text-primary border-primary/30">
                   {feature.status === "draft" ? "Rascunho" : feature.status === "exported" ? "Exportado" : "Arquivado"}
                 </Badge>
-                <Badge variant="outline" className="bg-white/5 border-white/10 gap-1.5">
+                <Badge variant="outline" className="bg-background dark:bg-white/5 border-input dark:border-white/10 gap-1.5">
                   <Globe className="w-3 h-3" />
                   {feature.language === "pt" ? "Português" : "English"}
                 </Badge>
@@ -310,7 +310,7 @@ export default function FeatureDetail() {
               </p>
             </div>
 
-            <div className="pt-4 border-t border-white/10">
+            <div className="pt-4 border-t border-input dark:border-white/10">
               <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                 Prompt Original
               </h2>
@@ -321,12 +321,12 @@ export default function FeatureDetail() {
           </div>
 
           {/* Histórias de Usuário dentro do card da feature */}
-          <div className="pt-6 border-t border-white/10">
+          <div className="pt-6 border-t border-input dark:border-white/10">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold tracking-tight">
                 Histórias de Usuário
               </h2>
-              <Badge variant="outline" className="bg-white/5 border-white/10 text-lg px-3 py-1">
+              <Badge variant="outline" className="bg-background dark:bg-white/5 border-input dark:border-white/10 text-lg px-3 py-1">
                 {userStories.length} {userStories.length === 1 ? "história" : "histórias"}
               </Badge>
             </div>
@@ -335,7 +335,7 @@ export default function FeatureDetail() {
               {userStories.map((story, index) => (
                 <div
                   key={story.id}
-                  className="p-6 rounded-lg bg-white/[0.03] border border-white/10 hover:border-white/20 transition-all space-y-4"
+                  className="p-6 rounded-lg bg-muted/40 dark:bg-white/[0.03] border border-input dark:border-white/10 hover:border-primary/30 dark:hover:border-white/20 transition-all space-y-4"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 space-y-2">
@@ -349,7 +349,7 @@ export default function FeatureDetail() {
                             variant="ghost"
                             size="sm"
                             onClick={() => setEditingStory(story)}
-                            className="h-8 w-8 p-0 hover:bg-white/10"
+                            className="h-8 w-8 p-0 hover:bg-accent dark:hover:bg-white/10"
                           >
                             <Edit className="w-4 h-4" />
                           </Button>
@@ -365,7 +365,7 @@ export default function FeatureDetail() {
                         {story.priority}
                       </Badge>
                       {story.storyPoints && (
-                        <Badge variant="outline" className="bg-white/5 border-white/10">
+                        <Badge variant="outline" className="bg-background dark:bg-white/5 border-input dark:border-white/10">
                           {story.storyPoints} pts
                         </Badge>
                       )}
@@ -400,7 +400,7 @@ export default function FeatureDetail() {
                         {story.tasks.map((task: any, taskIndex: number) => (
                           <div
                             key={task.id}
-                            className="flex items-start gap-3 text-sm p-3 rounded bg-white/[0.02] border border-white/5"
+                            className="flex items-start gap-3 text-sm p-3 rounded bg-muted/40 dark:bg-white/[0.02] border border-border dark:border-white/5"
                           >
                             <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary font-semibold text-xs flex-shrink-0">
                               {taskIndex + 1}
@@ -453,7 +453,7 @@ export default function FeatureDetail() {
                 value={selectedAzureProject}
                 onValueChange={setSelectedAzureProject}
               >
-                <SelectTrigger id="azure-project" className="bg-white/5 border-white/10">
+                <SelectTrigger id="azure-project" className="bg-background dark:bg-white/5 border-input dark:border-white/10">
                   <SelectValue placeholder="Selecione um projeto..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -467,7 +467,7 @@ export default function FeatureDetail() {
             </div>
 
             {selectedAzureProject && azureConfig?.projects && (
-              <div className="p-3 rounded-lg bg-white/5 border border-white/10">
+              <div className="p-3 rounded-lg bg-background dark:bg-white/5 border border-input dark:border-white/10">
                 {(() => {
                   const project = azureConfig.projects.find(
                     (p: any) => p.id.toString() === selectedAzureProject
@@ -537,7 +537,7 @@ export default function FeatureDetail() {
                   value={refinementPrompt}
                   onChange={(e) => setRefinementPrompt(e.target.value)}
                   placeholder="Ex: Adicione mais detalhes técnicos, inclua casos de erro..."
-                  className="min-h-[120px] bg-white/5 border-white/10"
+                  className="min-h-[120px] bg-background dark:bg-white/5 border-input dark:border-white/10"
                 />
               </div>
             </div>

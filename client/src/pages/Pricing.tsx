@@ -90,7 +90,6 @@ export function PricingPlans({ embedded = false }: { embedded?: boolean }) {
       "Features ilimitadas",
       "50.000 tokens por mês",
       "1 usuário",
-      "Modelo GPT-4o-mini",
     ],
     pro: [
       "Features ilimitadas",

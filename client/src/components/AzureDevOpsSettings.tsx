@@ -185,7 +185,7 @@ export function AzureDevOpsSettings() {
                 disabled={!canManage}
                 onChange={e => setOrganization(e.target.value)}
                 placeholder="MinhaOrganização"
-                className="bg-white/5 border-white/10 focus:border-primary/50"
+                className="bg-background dark:bg-white/5 border-input dark:border-white/10 focus:border-primary/50"
               />
               <p className="text-sm text-muted-foreground">
                 Nome da sua organização no Azure DevOps
@@ -202,7 +202,7 @@ export function AzureDevOpsSettings() {
                   disabled={!canManage}
                   onChange={e => setPat(e.target.value)}
                   placeholder={hasPat ? "Token salvo. Deixe em branco para manter" : "••••••••••••••••••••"}
-                  className="bg-white/5 border-white/10 focus:border-primary/50 pr-10"
+                  className="bg-background dark:bg-white/5 border-input dark:border-white/10 focus:border-primary/50 pr-10"
                 />
                 <Button
                   type="button"
@@ -284,7 +284,7 @@ export function AzureDevOpsSettings() {
                       value={newProjectName}
                       onChange={e => setNewProjectName(e.target.value)}
                       placeholder="Nome do projeto no Azure DevOps"
-                      className="bg-white/5 border-white/10"
+                      className="bg-background dark:bg-white/5 border-input dark:border-white/10"
                     />
                     <p className="text-xs text-muted-foreground">
                       Use o nome exato do projeto conforme está no Azure DevOps
@@ -298,7 +298,7 @@ export function AzureDevOpsSettings() {
                       value={newDefaultArea}
                       onChange={e => setNewDefaultArea(e.target.value)}
                       placeholder="/Frontend"
-                      className="bg-white/5 border-white/10"
+                      className="bg-background dark:bg-white/5 border-input dark:border-white/10"
                     />
                   </div>
 
@@ -309,7 +309,7 @@ export function AzureDevOpsSettings() {
                       value={newDefaultIteration}
                       onChange={e => setNewDefaultIteration(e.target.value)}
                       placeholder="Sprint 1"
-                      className="bg-white/5 border-white/10"
+                      className="bg-background dark:bg-white/5 border-input dark:border-white/10"
                     />
                   </div>
 
@@ -320,7 +320,7 @@ export function AzureDevOpsSettings() {
                       value={newDefaultState}
                       onChange={e => setNewDefaultState(e.target.value)}
                       placeholder="New, Active..."
-                      className="bg-white/5 border-white/10"
+                      className="bg-background dark:bg-white/5 border-input dark:border-white/10"
                     />
                   </div>
                 </div>
@@ -357,7 +357,7 @@ export function AzureDevOpsSettings() {
               fullConfig.projects.map((project: any) => (
                 <div
                   key={project.id}
-                  className="border border-white/10 rounded-lg p-4 hover:border-white/20 transition-colors"
+                  className="border border-input dark:border-white/10 rounded-lg p-4 hover:border-primary/30 dark:hover:border-white/20 transition-colors"
                 >
                   {editingProjectId === project.id ? (
                     // Modo de Edição
@@ -367,7 +367,7 @@ export function AzureDevOpsSettings() {
                         <Input
                           value={editProjectName}
                           onChange={e => setEditProjectName(e.target.value)}
-                          className="bg-white/5 border-white/10 h-9"
+                          className="bg-background dark:bg-white/5 border-input dark:border-white/10 h-9"
                           placeholder="Nome do projeto no Azure DevOps"
                         />
                       </div>
@@ -377,7 +377,7 @@ export function AzureDevOpsSettings() {
                           <Input
                             value={editDefaultArea}
                             onChange={e => setEditDefaultArea(e.target.value)}
-                            className="bg-white/5 border-white/10 h-8 text-sm"
+                            className="bg-background dark:bg-white/5 border-input dark:border-white/10 h-8 text-sm"
                             placeholder="/"
                           />
                         </div>
@@ -386,7 +386,7 @@ export function AzureDevOpsSettings() {
                           <Input
                             value={editDefaultIteration}
                             onChange={e => setEditDefaultIteration(e.target.value)}
-                            className="bg-white/5 border-white/10 h-8 text-sm"
+                            className="bg-background dark:bg-white/5 border-input dark:border-white/10 h-8 text-sm"
                           />
                         </div>
                         <div>
@@ -394,7 +394,7 @@ export function AzureDevOpsSettings() {
                           <Input
                             value={editDefaultState}
                             onChange={e => setEditDefaultState(e.target.value)}
-                            className="bg-white/5 border-white/10 h-8 text-sm"
+                            className="bg-background dark:bg-white/5 border-input dark:border-white/10 h-8 text-sm"
                           />
                         </div>
                       </div>

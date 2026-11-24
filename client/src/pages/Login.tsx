@@ -14,12 +14,32 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, UserRound, X } from "lucide-react";
 import { usePageSeo } from "@/hooks/usePageSeo";
 
-// Só guardamos a preferência (sim ou não). Email e senha ficam no gerenciador
-// de senhas do navegador (Credential Management API), nunca no localStorage.
+// No localStorage ficam só a preferência e a lista de emails lembrados.
+// As senhas ficam no gerenciador de senhas do navegador (Credential Management API),
+// nunca no localStorage, onde qualquer script da página conseguiria lê-las.
 const REMEMBER_KEY = "st_lembrar_dados";
+const SAVED_ACCOUNTS_KEY = "st_contas_lembradas";
+const MAX_SAVED_ACCOUNTS = 8;
+
+function readSavedAccounts(): string[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SAVED_ACCOUNTS_KEY) ?? "[]");
+    return Array.isArray(parsed) ? parsed.filter((e): e is string => typeof e === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeSavedAccounts(accounts: string[]) {
+  try {
+    localStorage.setItem(SAVED_ACCOUNTS_KEY, JSON.stringify(accounts));
+  } catch {
+    // ignorar
+  }
+}
 
 type PasswordCredentialCtor = new (data: {
   id: string;
@@ -48,8 +68,45 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState<boolean>(readRememberPreference);
+  const [savedAccounts, setSavedAccounts] = useState<string[]>(readSavedAccounts);
   const [error, setError] = useState("");
   const utils = trpc.useUtils();
+
+  const removeSavedAccount = (account: string) => {
+    const next = savedAccounts.filter(a => a !== account);
+    setSavedAccounts(next);
+    writeSavedAccounts(next);
+    if (email === account) {
+      setEmail("");
+      setPassword("");
+    }
+  };
+
+  /** Preenche o email escolhido e pede a senha dessa conta ao gerenciador de senhas do navegador */
+  const chooseSavedAccount = async (account: string) => {
+    setEmail(account);
+    setPassword("");
+    setError("");
+    const focusPassword = () => document.getElementById("password")?.focus();
+    if (!getPasswordCredentialCtor()) return focusPassword();
+    try {
+      const request = (mediation: "optional" | "required") =>
+        navigator.credentials.get({ password: true, mediation } as CredentialRequestOptions) as Promise<
+          (Credential & { password?: string }) | null
+        >;
+      let cred = await request("optional");
+      // Com várias contas salvas o navegador pode devolver outra: abre o seletor de contas dele
+      if (!cred || cred.id !== account) cred = await request("required");
+      if (cred?.type === "password" && cred.password) {
+        setEmail(cred.id);
+        setPassword(cred.password);
+        return;
+      }
+    } catch {
+      // Navegador recusou ou não suporta
+    }
+    focusPassword();
+  };
 
   usePageSeo({
     title: "Entrar",
@@ -83,6 +140,9 @@ export default function Login() {
     } catch {
       // ignorar
     }
+    const normalized = loginEmail.trim().toLowerCase();
+    const others = readSavedAccounts().filter(a => a !== normalized);
+    writeSavedAccounts(remember ? [normalized, ...others].slice(0, MAX_SAVED_ACCOUNTS) : others);
     const Ctor = getPasswordCredentialCtor();
     if (!Ctor) return;
     try {
@@ -144,6 +204,39 @@ export default function Login() {
               <Alert variant="destructive">
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
+            )}
+
+            {savedAccounts.length > 0 && (
+              <div className="space-y-2">
+                <Label>Contas salvas</Label>
+                <ul className="divide-y rounded-md border">
+                  {savedAccounts.map(account => (
+                    <li key={account} className={`flex items-center gap-1 pr-1 ${email === account ? "bg-accent" : ""}`}>
+                      <button
+                        type="button"
+                        className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent"
+                        onClick={() => chooseSavedAccount(account)}
+                        disabled={loginMutation.isPending}
+                      >
+                        <UserRound className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <span className="truncate">{account}</span>
+                      </button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 shrink-0 p-0 text-muted-foreground"
+                        title="Esquecer esta conta"
+                        aria-label={`Esquecer ${account}`}
+                        onClick={() => removeSavedAccount(account)}
+                        disabled={loginMutation.isPending}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
 
             <div className="space-y-2">

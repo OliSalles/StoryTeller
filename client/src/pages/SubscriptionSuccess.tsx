@@ -147,7 +147,7 @@ export default function SubscriptionSuccess() {
 
         <CardContent className="space-y-6">
           {subscription && (
-            <div className="bg-white/5 rounded-lg p-4 space-y-2">
+            <div className="bg-background dark:bg-white/5 rounded-lg p-4 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Plano:</span>
                 <span className="font-medium">{subscription.plan.displayName}</span>

@@ -3,7 +3,8 @@ import { protectedProcedure, router } from "./_core/trpc";
 import * as db from "./db";
 
 /**
- * Token usage routers - relatórios de uso de tokens da LLM
+ * Token usage routers - relatórios de uso de tokens da LLM.
+ * O cliente vê só o consumo de tokens: custo em dinheiro e modelo usado não saem do servidor.
  */
 export const tokensRouter = router({
   // Buscar histórico de uso de tokens
@@ -17,7 +18,13 @@ export const tokensRouter = router({
     .query(async ({ ctx, input }) => {
       const startDate = input.startDate ? new Date(input.startDate) : undefined;
       const endDate = input.endDate ? new Date(input.endDate) : undefined;
-      return await db.getTokenUsageByUserId(ctx.user.id, startDate, endDate);
+      const rows = await db.getTokenUsageByUserId(ctx.user.id, startDate, endDate);
+      return rows.map((row) => ({
+        id: row.id,
+        createdAt: row.createdAt,
+        operation: row.operation,
+        totalTokens: row.totalTokens,
+      }));
     }),
 
   // Buscar estatísticas agregadas
@@ -28,13 +35,7 @@ export const tokensRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      return await db.getTokenUsageStats(ctx.user.id, input.days);
+      const stats = await db.getTokenUsageStats(ctx.user.id, input.days);
+      return { totalTokens: stats.totalTokens, requests: stats.requests };
     }),
 });
-
-
-
-
-
-
-
