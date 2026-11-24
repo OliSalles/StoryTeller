@@ -9,6 +9,16 @@ import { getLoginUrl } from "./const";
 import { getActiveCompanyId } from "./lib/active-company";
 import "./index.css";
 
+// Aba aberta antes de um deploy pede chunks que já não existem: recarrega uma vez para pegar o build novo
+const RELOAD_KEY = "storyteller.chunkReloadAt";
+window.addEventListener("vite:preloadError", (event) => {
+  const last = Number(sessionStorage.getItem(RELOAD_KEY) ?? 0);
+  if (Date.now() - last < 10_000) return;
+  event.preventDefault();
+  sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
+  window.location.reload();
+});
+
 const queryClient = new QueryClient();
 
 const redirectToLoginIfUnauthorized = (error: unknown) => {
