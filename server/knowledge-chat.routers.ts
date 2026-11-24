@@ -33,6 +33,13 @@ export function codeHeuristic(question: string): boolean {
   );
 }
 
+/** Palavras que indicam que a pergunta pede análise ou opinião, e não só o que está documentado */
+export function analysisHeuristic(question: string): boolean {
+  return /\b(melhori(a|as|ar)|melhorad[oa]|otimiz|aprimor|sugest|sugere|sugira|recomend|opini[aã]o|avali(e|a|ar|a[cç][aã]o)|analis|an[aá]lise|risco|problema|gargalo|falha|lacuna|o que (falta|pode|poderia|deveria)|faltando|pontos? (fracos?|fortes?|de aten[cç][aã]o)|boas pr[aá]ticas|vale a pena|compensa|como (resolver|evoluir|melhorar)|pr[oó]ximos passos|prioriz|vantage|desvantage|pr[oó]s|contras)/i.test(
+    question
+  );
+}
+
 function fallbackConversationTitle(message: string) {
   const cleaned = message.replace(/\s+/g, " ").replace(/[?!.]+$/g, "").trim();
   if (cleaned.length <= 72) return cleaned;
@@ -78,7 +85,13 @@ async function planRetrieval(
   question: string,
   history: string,
   userId: number
-): Promise<{ terms: string[]; searchQuery: string; needsCode: boolean }> {
+): Promise<{ terms: string[]; searchQuery: string; needsCode: boolean; analysis: boolean }> {
+  const fallback = () => ({
+    terms: [],
+    searchQuery: question,
+    needsCode: codeHeuristic(question),
+    analysis: analysisHeuristic(question),
+  });
   try {
     const res = await invokeLLM({
       messages: [
@@ -86,7 +99,9 @@ async function planRetrieval(
           role: "system",
           content:
             "Você prepara buscas numa base de conhecimento empresarial em português. " +
-            "Responda SOMENTE com um JSON no formato {\"terms\": [\"...\"], \"searchQuery\": \"...\", \"needsCode\": false}. " +
+            "Responda SOMENTE com um JSON no formato {\"terms\": [\"...\"], \"searchQuery\": \"...\", \"needsCode\": false, \"analysis\": false}. " +
+            "analysis: true quando a pergunta pede análise, opinião, avaliação, melhorias, riscos, problemas, lacunas, sugestões, prioridades ou próximos passos " +
+            "(a resposta exige raciocínio sobre o conteúdo e não só repetir o que está documentado); false quando pede só explicar o que existe. " +
             "terms: de 3 a 8 termos curtos (1 a 3 palavras) para busca textual, incluindo o termo principal exatamente como o usuário escreveu, " +
             "variações (singular/plural), siglas e sinônimos de negócio. searchQuery: a pergunta reescrita de forma completa e autocontida, " +
             "resolvendo referências ao histórico. needsCode: true quando a resposta fica melhor olhando o código fonte " +
@@ -105,16 +120,21 @@ async function planRetrieval(
     const raw = res.choices[0]?.message?.content;
     const text = typeof raw === "string" ? raw : JSON.stringify(raw ?? "");
     const match = text.match(/\{[\s\S]*\}/);
-    if (!match) return { terms: [], searchQuery: question, needsCode: codeHeuristic(question) };
+    if (!match) return fallback();
     const parsed = JSON.parse(match[0]);
     const terms = Array.isArray(parsed.terms)
       ? parsed.terms.filter((t: unknown) => typeof t === "string" && t.trim().length >= 3).slice(0, 8)
       : [];
     const searchQuery = typeof parsed.searchQuery === "string" && parsed.searchQuery.trim() ? parsed.searchQuery.trim() : question;
-    return { terms, searchQuery, needsCode: parsed.needsCode === true || codeHeuristic(question) };
+    return {
+      terms,
+      searchQuery,
+      needsCode: parsed.needsCode === true || codeHeuristic(question),
+      analysis: parsed.analysis === true || analysisHeuristic(question),
+    };
   } catch (err) {
     console.warn("[KnowledgeChat] planRetrieval falhou, seguindo sem reescrita:", err);
-    return { terms: [], searchQuery: question, needsCode: codeHeuristic(question) };
+    return fallback();
   }
 }
 
@@ -126,12 +146,55 @@ export function techDebtInstruction(techDebtRefs: number[]): string {
   const refs = techDebtRefs.map((n) => `[${n}]`).join(", ");
   return `\n\nDÉBITOS TÉCNICOS E PROPOSTAS DE MELHORIA (trechos ${refs}):
 - Esses trechos vêm de material de débitos técnicos e propostas de melhoria. Não use esses trechos no corpo da resposta.
-- Logo antes da seção "### Fontes", inclua a seção "${TECH_DEBT_SECTION_TITLE}" com duas partes: "### Débitos técnicos" (o que hoje tem problema, limitação ou risco) e "### Propostas de melhoria" (o que se propõe mudar e o ganho esperado), em listas, citando os números das fontes.
+- No final da resposta, inclua a seção "${TECH_DEBT_SECTION_TITLE}" com duas partes: "### Débitos técnicos" (o que hoje tem problema, limitação ou risco) e "### Propostas de melhoria" (o que se propõe mudar e o ganho esperado), em listas, citando os números das fontes.
 - Use somente o que está nesses trechos e que tenha relação com o assunto perguntado. Não invente débitos nem propostas. Se uma das partes não tiver informação, escreva "Não documentado na base." nessa parte.
 - Se nenhum desses trechos tiver relação com o assunto perguntado, não inclua essa seção.`;
 }
 
-export function buildAnswerPrompt(context: string, imageUrls: string[], hasCode = false, techDebtRefs: number[] = []): string {
+/**
+ * Perguntas de análise (melhorias, riscos, lacunas...): a base é o ponto de partida,
+ * mas a IA deve raciocinar e propor, deixando claro o que é documentado e o que é sugestão dela.
+ */
+function buildAnalysisPrompt(context: string, imageUrls: string[], hasCode: boolean, techDebtRefs: number[]): string {
+  const code = hasCode
+    ? `\n- Quando houver trechos de código, use-os para apontar problemas concretos (regras espalhadas, validações faltando, acoplamento, processamento em lote, tratamento de erro, integração) citando o arquivo entre crases e o número da fonte.`
+    : "";
+  const images = imageUrls.length
+    ? `\n\nIMAGENS QUE EXISTEM NA BASE (use apenas estas, se ajudarem, no formato ![descrição](url)):\n${imageUrls.map((u) => `- ${u}`).join("\n")}`
+    : "";
+  return `Você é um consultor sênior que conhece o negócio e os sistemas desta empresa e tem experiência de mercado em processos, sistemas corporativos (como Salesforce e ERPs), integrações e arquitetura de software. O usuário quer a sua ANÁLISE, não só o que está documentado.
+
+COMO RESPONDER:
+- Responda em português brasileiro, com linguagem simples e profissional. Use "para" (nunca "pra") e não use travessões.
+- Parta do que está no contexto abaixo e do que já foi explicado nesta conversa para entender como o processo funciona hoje.
+- Depois use o seu conhecimento e as boas práticas de mercado para analisar esse processo e responder o que foi pedido: melhorias, riscos, problemas, lacunas, o que não foi feito, prioridades ou próximos passos.
+- NUNCA responda apenas que a documentação não menciona melhorias. A ausência de melhorias documentadas não impede a análise: analise o processo descrito e proponha.
+- Separe com clareza o que é fato documentado (sempre com o número da fonte entre colchetes, por exemplo [2]) do que é análise ou sugestão sua (sem número de fonte).
+- Seja concreto e ligado ao processo desta empresa: cite os objetos, telas, batchs, integrações e etapas que aparecem no contexto. Evite conselhos genéricos que serviriam para qualquer empresa.
+- Não invente fatos sobre a empresa (nomes de sistemas, números, regras). Quando uma sugestão depender de algo que não está documentado, diga isso e indique o que precisaria ser confirmado.${code}
+
+FORMATO (markdown):
+1. Comece com um diagnóstico curto de 2 a 3 frases.
+2. "## Como funciona hoje": um resumo curto do processo, com as fontes.
+3. "## Oportunidades de melhoria": uma tabela com as colunas Melhoria, Problema que resolve, Impacto (Alto, Médio ou Baixo) e Esforço (Alto, Médio ou Baixo), ordenada pelas mais importantes.
+4. Para as principais melhorias, uma seção curta explicando como fazer na prática.
+5. Se fizer sentido, "## Riscos e pontos de atenção" e "## O que não está documentado e precisa ser confirmado".
+6. Se ajudar, um diagrama Mermaid ("flowchart TD") do processo proposto: ids simples sem espaço, textos dos nós entre aspas duplas, no máximo 15 nós.
+7. Não inclua uma seção de fontes no final: a lista de fontes consultadas já é mostrada abaixo da resposta.${images}${techDebtInstruction(techDebtRefs)}
+
+CONTEXTO DA BASE DE CONHECIMENTO:
+
+${context || "(nenhum trecho novo encontrado para esta pergunta; use o que já foi explicado nesta conversa)"}`;
+}
+
+export function buildAnswerPrompt(
+  context: string,
+  imageUrls: string[],
+  hasCode = false,
+  techDebtRefs: number[] = [],
+  analysis = false
+): string {
+  if (analysis) return buildAnalysisPrompt(context, imageUrls, hasCode, techDebtRefs);
   const code = hasCode
     ? `\n\nSOBRE TRECHOS DE CÓDIGO (fontes do tipo código):
 - Primeiro explique em linguagem de negócio. Depois inclua uma seção "### Como funciona no código" explicando o que o código faz, as regras e validações que ele aplica e a ordem das chamadas.
@@ -157,7 +220,7 @@ FORMATO (markdown):
 2. Depois organize em seções com títulos (## ou ###), por exemplo: o que é, para que serve, regras principais, como funciona passo a passo, quem participa, exceções e pontos de atenção. Use só as seções que fizerem sentido.
 3. Use listas e passos numerados para deixar a leitura fácil. Use tabelas quando comparar itens.
 4. Quando o assunto for um processo, fluxo, jornada, integração ou sequência de etapas, inclua um diagrama Mermaid em um bloco \`\`\`mermaid usando "flowchart TD". Regras do diagrama: ids simples sem espaço (A, B, C1), textos dos nós entre aspas duplas, por exemplo A["Pedido criado"] --> B{"Aprovado?"}, sem parênteses, dois pontos ou ponto e vírgula fora das aspas, no máximo 15 nós.
-5. Termine com uma seção "### Fontes" listando, sem repetir, os nomes das fontes usadas com seus números (para código, liste também os arquivos).${images}${code}${techDebtInstruction(techDebtRefs)}
+5. Não inclua uma seção de fontes no final: a lista de fontes consultadas já é mostrada abaixo da resposta.${images}${code}${techDebtInstruction(techDebtRefs)}
 
 CONTEXTO DA BASE DE CONHECIMENTO:
 
@@ -264,14 +327,23 @@ export const knowledgeChatRouter = router({
         .join("\n");
       const plan = await planRetrieval(input.message, historyText, ctx.user.id);
 
+      // Em perguntas de análise ("tem melhoria?"), o assunto costuma estar na pergunta anterior
+      const previousQuestion = plan.analysis
+        ? [...recentMessages.slice(0, -1)].reverse().find((m) => m.role === "user")?.content ?? ""
+        : "";
+
       // 2) Busca híbrida: vetorial (significado) + palavra chave (texto exato, sem acento)
       const keyTerms = Array.from(
-        new Set([...extractKeyTerms(input.message), ...plan.terms.map(normalizeText)])
+        new Set([...extractKeyTerms(input.message), ...plan.terms.map(normalizeText), ...extractKeyTerms(previousQuestion, 4)])
       ).filter((t) => t.length >= 3).slice(0, 14);
 
-      const semanticQuery = plan.searchQuery && plan.searchQuery !== input.message
-        ? `${input.message}\n${plan.searchQuery}`
-        : input.message;
+      const semanticQuery = [
+        input.message,
+        plan.searchQuery !== input.message ? plan.searchQuery : "",
+        previousQuestion.slice(0, 500),
+      ]
+        .filter(Boolean)
+        .join("\n");
       const queryEmbedding = await generateEmbedding(semanticQuery);
 
       const codeSearch = plan.needsCode
@@ -334,10 +406,12 @@ export const knowledgeChatRouter = router({
         : [];
 
       console.log(
-        `[KnowledgeChat] techDebt=${techDebtOn ? techDebtChunks.length : "off"} needsCode=${plan.needsCode} code=${codeVector.length}/${codeKeyword.length} terms=${JSON.stringify(keyTerms)} vector=${vectorChunks.length} keyword=${keywordChunks.length} final=${finalChunks.length} sources=${new Set(finalChunks.map((c) => c.source_id)).size}`
+        `[KnowledgeChat] analysis=${plan.analysis} techDebt=${techDebtOn ? techDebtChunks.length : "off"} needsCode=${plan.needsCode} code=${codeVector.length}/${codeKeyword.length} terms=${JSON.stringify(keyTerms)} vector=${vectorChunks.length} keyword=${keywordChunks.length} final=${finalChunks.length} sources=${new Set(finalChunks.map((c) => c.source_id)).size}`
       );
 
-      if (finalChunks.length === 0) {
+      // Análise sobre um assunto já explicado na conversa pode seguir mesmo sem trechos novos
+      const hasPriorAnswer = recentMessages.some((m) => m.role === "assistant");
+      if (finalChunks.length === 0 && !(plan.analysis && hasPriorAnswer)) {
         // No relevant knowledge found
         const responseContent = "Desculpe, não encontrei informações relevantes na base de conhecimento da empresa para responder sua pergunta. Tente reformular ou adicionar mais contexto.";
         
@@ -369,7 +443,7 @@ export const knowledgeChatRouter = router({
       const imageUrls = extractImageUrls(finalChunks);
 
       const hasCode = finalChunks.some((c) => c.source_type === "code_repo");
-      const systemPrompt = buildAnswerPrompt(context, imageUrls, hasCode, techDebtRefs);
+      const systemPrompt = buildAnswerPrompt(context, imageUrls, hasCode, techDebtRefs, plan.analysis);
 
       // Build message history
       const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [

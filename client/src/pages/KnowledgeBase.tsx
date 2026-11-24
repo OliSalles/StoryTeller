@@ -64,13 +64,6 @@ export function KnowledgeBase() {
     },
     onError: (error) => toast.error(error.message),
   });
-  const setSourceTechDebt = trpc.knowledge.setSourceTechDebt.useMutation({
-    onSuccess: (_res, vars) => {
-      toast.success(vars.techDebt ? "Fonte marcada como débitos técnicos e melhorias" : "Marcação de débitos técnicos removida");
-      utils.knowledge.listSources.invalidate();
-    },
-    onError: (error) => toast.error(error.message),
-  });
   const createSource = trpc.knowledge.createSource.useMutation();
   const uploadFile = trpc.knowledge.uploadFile.useMutation();
   const processSource = trpc.knowledge.processSource.useMutation({
@@ -471,18 +464,6 @@ export function KnowledgeBase() {
                                       onClick={() => reindexSource.mutate({ sourceId: source.id })}
                                     >
                                       <RefreshCw className="h-4 w-4" />
-                                    </Button>
-                                  )}
-                                  {canManage && source.type !== "code_repo" && (
-                                    <Button
-                                      size="sm"
-                                      variant={isTechDebtSource(source) ? "secondary" : "ghost"}
-                                      title={isTechDebtSource(source) ? "Desmarcar como débitos técnicos e melhorias" : "Marcar como débitos técnicos e melhorias"}
-                                      aria-label="Marcar como débitos técnicos e melhorias"
-                                      disabled={setSourceTechDebt.isPending}
-                                      onClick={() => setSourceTechDebt.mutate({ sourceId: source.id, techDebt: !isTechDebtSource(source) })}
-                                    >
-                                      <Wrench className="h-4 w-4" />
                                     </Button>
                                   )}
                                   {canManage && (

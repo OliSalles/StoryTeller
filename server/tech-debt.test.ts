@@ -55,11 +55,11 @@ describe("seção de débitos técnicos", () => {
     expect(base).not.toContain(TECH_DEBT_SECTION_TITLE);
   });
 
-  it("prompt com trechos de débito pede a seção antes das Fontes, sem inventar", () => {
+  it("prompt com trechos de débito pede a seção no final, sem inventar", () => {
     const p = buildAnswerPrompt("ctx", [], false, [4, 5]);
     expect(p).toContain(TECH_DEBT_SECTION_TITLE);
     expect(p).toContain("[4], [5]");
-    expect(p).toContain("Logo antes da seção \"### Fontes\"");
+    expect(p).toContain("No final da resposta, inclua a seção");
     expect(p).toContain("Não invente");
     expect(p.indexOf(TECH_DEBT_SECTION_TITLE)).toBeLessThan(p.indexOf("CONTEXTO DA BASE"));
   });
