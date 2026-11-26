@@ -17,12 +17,12 @@ export const azureDevOpsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      // ✅ Check if user has permission to export to Azure DevOps
-      const subscriptionInfo = await getUserSubscriptionInfo(ctx.user.id);
+      // ✅ Basta um usuário da empresa ativa ter licença que libere a exportação
+      const subscriptionInfo = await getUserSubscriptionInfo(ctx.user.id, ctx.tenant.companyId);
       if (!subscriptionInfo.canExportAzure) {
         throw new TRPCError({
           code: "FORBIDDEN",
-          message: "A exportação para Azure DevOps está disponível apenas nos planos Pro e Business. Faça upgrade para continuar!",
+          message: "A exportação para Azure DevOps está disponível apenas quando algum usuário da empresa tem plano Pro ou Business. Faça upgrade para continuar!",
         });
       }
 

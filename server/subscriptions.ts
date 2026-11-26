@@ -1,9 +1,10 @@
-import { eq, and, or, desc, gte } from "drizzle-orm";
+import { eq, and, or, desc, gte, inArray } from "drizzle-orm";
 import {
   subscriptionPlans,
   subscriptions,
   payments,
   features,
+  users,
   InsertSubscription,
   InsertPayment,
 } from "../drizzle/schema";
@@ -32,6 +33,47 @@ export async function getPlanByName(name: string) {
 }
 
 // ============ SUBSCRIPTIONS ============
+
+/** Assinaturas ativas ou em trial dos usuários informados, com o plano (para o plano efetivo da empresa) */
+export async function getEntitledSubscriptionsWithPlan(userIds: number[]) {
+  const db = await getDb();
+  if (!db || userIds.length === 0) return [];
+
+  return db
+    .select({
+      subscription: subscriptions,
+      plan: subscriptionPlans,
+    })
+    .from(subscriptions)
+    .leftJoin(subscriptionPlans, eq(subscriptions.planId, subscriptionPlans.id))
+    .where(
+      and(
+        inArray(subscriptions.userId, userIds),
+        or(eq(subscriptions.status, "active"), eq(subscriptions.status, "trialing"))
+      )
+    )
+    .orderBy(desc(subscriptions.createdAt));
+}
+
+/** Dos usuários informados, os que são admin do sistema (users.role = 'admin') */
+export async function getAdminUserIds(userIds: number[]): Promise<number[]> {
+  const db = await getDb();
+  if (!db || userIds.length === 0) return [];
+
+  const rows = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(and(inArray(users.id, userIds), eq(users.role, "admin")));
+  return rows.map((r) => r.id);
+}
+
+/** Plano mais alto ativo: o Business; se não existir, o de maior preço mensal */
+export async function getTopPlan() {
+  const byName = await getPlanByName("business");
+  if (byName && byName.isActive !== false) return byName;
+  const plans = await getAllPlans();
+  return plans.sort((a, b) => (b.priceMonthly ?? 0) - (a.priceMonthly ?? 0))[0] ?? null;
+}
 
 export async function getActiveSubscription(userId: number) {
   const db = await getDb();
@@ -124,7 +166,7 @@ export async function incrementTokenUsage(userId: number, tokens: number) {
   await db
     .update(subscriptions)
     .set({
-      tokensUsedThisPeriod: subscription.tokensUsedThisPeriod + tokens,
+      tokensUsedThisPeriod: (subscription.tokensUsedThisPeriod ?? 0) + tokens,
       updatedAt: new Date(),
     })
     .where(eq(subscriptions.id, subscription.id));

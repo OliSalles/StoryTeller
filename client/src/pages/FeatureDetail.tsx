@@ -70,7 +70,7 @@ export default function FeatureDetail() {
     // ✅ Check if user has permission
     if (!status?.canExportJira) {
       setShowUpgradeModal(true);
-      toast.error("A exportação para Jira está disponível apenas nos planos Pro e Business.");
+      toast.error("A exportação para Jira fica liberada quando algum usuário da empresa tem plano Pro ou Business.");
       return;
     }
 
@@ -94,7 +94,7 @@ export default function FeatureDetail() {
     // ✅ Check if user has permission
     if (!status?.canExportAzure) {
       setShowUpgradeModal(true);
-      toast.error("A exportação para Azure DevOps está disponível apenas nos planos Pro e Business.");
+      toast.error("A exportação para Azure DevOps fica liberada quando algum usuário da empresa tem plano Pro ou Business.");
       return;
     }
 

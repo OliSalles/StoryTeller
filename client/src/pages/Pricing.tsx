@@ -98,7 +98,6 @@ export function PricingPlans({ embedded = false }: { embedded?: boolean }) {
       "Exportação Jira/Azure DevOps",
       "PDF sem marca d'água",
       "Suporte por email",
-      "7 dias de trial grátis",
     ],
     business: [
       "Features ilimitadas",
@@ -202,8 +201,12 @@ export function PricingPlans({ embedded = false }: { embedded?: boolean }) {
             const price =
               billingCycle === "monthly" ? plan.priceMonthly : plan.priceYearly;
             const displayPrice = price ? (price / 100).toFixed(0) : "0";
-            const features =
-              planFeatures[plan.name as keyof typeof planFeatures] || [];
+            // Trial só aparece quando o plano realmente tem dias de trial no banco (o checkout usa o mesmo valor)
+            const trialDays = plan.hasTrialDays ?? 0;
+            const features = [
+              ...(planFeatures[plan.name as keyof typeof planFeatures] || []),
+              ...(trialDays > 0 ? [`${trialDays} dias de trial grátis`] : []),
+            ];
 
             // Calcular diferença de tokens para upgrade
             const getTokensInfo = (planName: string) => {

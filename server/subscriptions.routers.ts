@@ -2,7 +2,7 @@ import { z } from "zod";
 import { protectedProcedure, router } from "./_core/trpc";
 import * as db from "./subscriptions";
 import { createCheckoutSession, createCustomerPortalSession } from "./_core/stripe";
-import { getCurrentUsage, getUserSubscriptionInfo } from "./_core/subscription-guard";
+import { getCurrentUsage, getRequestCompanyId, getUserSubscriptionInfo } from "./_core/subscription-guard";
 
 /**
  * Subscription routers - gerenciamento de assinaturas e pagamentos
@@ -18,14 +18,16 @@ export const subscriptionsRouter = router({
     return await db.getAllPlans();
   }),
   
-  // Get current usage and limits
+  // Get current usage and limits (plano efetivo na empresa ativa)
   getUsage: protectedProcedure.query(async ({ ctx }) => {
-    return await getCurrentUsage(ctx.user.id);
+    const companyId = await getRequestCompanyId(ctx.user.id, ctx.req);
+    return await getCurrentUsage(ctx.user.id, companyId);
   }),
   
-  // Get subscription status and plan info
+  // Get subscription status and plan info (plano efetivo na empresa ativa)
   getStatus: protectedProcedure.query(async ({ ctx }) => {
-    return await getUserSubscriptionInfo(ctx.user.id);
+    const companyId = await getRequestCompanyId(ctx.user.id, ctx.req);
+    return await getUserSubscriptionInfo(ctx.user.id, companyId);
   }),
   
   // Create checkout session

@@ -134,6 +134,17 @@ function CurrentPlan({ onSeePlans }: { onSeePlans: () => void }) {
           <CardDescription>
             {isFreePlan ? "Você está no plano gratuito" : plan?.displayName}
           </CardDescription>
+          {usage?.entitlementSource === "admin" && (
+            <p className="text-sm text-muted-foreground">
+              Como administrador do sistema, você tem o plano {usage.plan.displayName} liberado sem cobrança.
+            </p>
+          )}
+          {usage?.entitlementSource === "company" && (
+            <p className="text-sm text-muted-foreground">
+              A empresa em uso tem o plano {usage.plan.displayName} liberado por outro usuário dela, então você
+              também usa os recursos desse plano nela.
+            </p>
+          )}
         </CardHeader>
         <CardContent className="space-y-4">
           {!isFreePlan && sub && (

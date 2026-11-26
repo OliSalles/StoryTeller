@@ -29,7 +29,7 @@ export function UpgradeModal({
   const defaultDescriptions = {
     tokens: "Você atingiu o limite de tokens do plano gratuito. Faça upgrade para o plano Pro e tenha 500.000 tokens por mês!",
     features: "Você atingiu o limite de features do plano gratuito. Faça upgrade para o plano Pro e tenha features ilimitadas!",
-    export: "A exportação para Jira e Azure DevOps está disponível apenas nos planos Pro e Business."
+    export: "A exportação para Jira e Azure DevOps fica liberada quando algum usuário da empresa tem plano Pro ou Business."
   };
 
   const handleUpgrade = () => {
@@ -79,10 +79,6 @@ export function UpgradeModal({
             <div className="flex items-start gap-2">
               <Check className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
               <span className="text-sm">Suporte por email</span>
-            </div>
-            <div className="flex items-start gap-2">
-              <Check className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-              <span className="text-sm">7 dias de trial grátis</span>
             </div>
           </div>
 

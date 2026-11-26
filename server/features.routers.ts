@@ -4,7 +4,7 @@ import { protectedProcedure, router } from "./_core/trpc";
 import { invokeLLM } from "./_core/llm";
 import * as db from "./db";
 import { generateFeaturePdf } from "./pdf";
-import { checkTokenLimit, getUserSubscriptionInfo } from "./_core/subscription-guard";
+import { checkTokenLimit, getRequestCompanyId, getUserSubscriptionInfo } from "./_core/subscription-guard";
 import { buildFeatureKnowledgeContext, featureKnowledgeInstructions } from "./feature-knowledge-context";
 import { requestedCompanyId } from "./_core/tenant-guard";
 
@@ -73,7 +73,7 @@ export const featuresRouter = router({
     .mutation(async ({ ctx, input }) => {
       // ✅ Check token limit BEFORE refining (estimated 3000 tokens)
       const estimatedTokens = 3000;
-      await checkTokenLimit(ctx.user.id, estimatedTokens);
+      await checkTokenLimit(ctx.user.id, estimatedTokens, await getRequestCompanyId(ctx.user.id, ctx.req));
 
       // Get existing feature and stories
       const feature = await db.getFeatureById(input.featureId);
@@ -226,7 +226,7 @@ Return your response in the following JSON format:
       // ✅ Check token limit BEFORE generating (estimated 5000 tokens per feature)
       const estimatedTokens = 5000;
       try {
-        await checkTokenLimit(ctx.user.id, estimatedTokens);
+        await checkTokenLimit(ctx.user.id, estimatedTokens, await getRequestCompanyId(ctx.user.id, ctx.req));
         console.log('[GENERATE] Token limit check passed');
       } catch (error: any) {
         console.log('[GENERATE] Token limit exceeded for user:', ctx.user.id);
@@ -858,12 +858,13 @@ Return your response in the following JSON format:
   exportToJira: protectedProcedure
     .input(z.object({ featureId: z.number() }))
     .mutation(async ({ ctx, input }) => {
-      // ✅ Check if user has permission to export to Jira
-      const subscriptionInfo = await getUserSubscriptionInfo(ctx.user.id);
+      // ✅ Basta um usuário da empresa ativa ter licença que libere a exportação
+      const companyId = await getRequestCompanyId(ctx.user.id, ctx.req);
+      const subscriptionInfo = await getUserSubscriptionInfo(ctx.user.id, companyId);
       if (!subscriptionInfo.canExportJira) {
         throw new TRPCError({
           code: "FORBIDDEN",
-          message: "A exportação para Jira está disponível apenas nos planos Pro e Business. Faça upgrade para continuar!",
+          message: "A exportação para Jira está disponível apenas quando algum usuário da empresa tem plano Pro ou Business. Faça upgrade para continuar!",
         });
       }
 

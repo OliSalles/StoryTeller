@@ -304,6 +304,21 @@ export async function getCompanyMembers(companyId: number) {
   return result;
 }
 
+/** Ids de todos os usuários ligados à empresa: dono + membros (para o plano efetivo da empresa) */
+export async function getCompanyUserIds(companyId: number): Promise<number[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  const [company, members] = await Promise.all([
+    db.select({ ownerId: companies.ownerId }).from(companies).where(eq(companies.id, companyId)).limit(1),
+    db.select({ userId: companyMembers.userId }).from(companyMembers).where(eq(companyMembers.companyId, companyId)),
+  ]);
+
+  const ids = new Set<number>(members.map((m) => m.userId));
+  if (company[0]?.ownerId) ids.add(company[0].ownerId);
+  return Array.from(ids);
+}
+
 export async function getCompanyMember(companyId: number, userId: number) {
   const db = await getDb();
   if (!db) return undefined;
